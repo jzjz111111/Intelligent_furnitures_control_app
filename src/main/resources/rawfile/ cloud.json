@@ -1,0 +1,7 @@
+{
+  "iamEndpoint": "https://iam.example.com",
+  "domain": "IAMDomain",
+  "username": "IAMUser",
+  "password": "IAMPassword",
+  "apiBase": "https://api.example.com"
+}

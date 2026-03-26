@@ -1,48 +1,49 @@
 ////////////////////////////************/////////////////////////////////
-//房间类
-export class room{
+//农田类
+@Observed
+export class farmland{
   name:string = ''
-  furniture_s:Furniture[] = []
-  constructor(name:string,fnt:Furniture[]) {
+  device_s:Device[] = []
+  constructor(name:string,fnt:Device[]) {
     this.name = name
-    this.furniture_s = fnt
+    this.device_s = fnt
   }
   get_lighting(){
     let max = 0
-    for(let f of this.furniture_s){
-      console.log("room max: "+f.lighting)
+    for(let f of this.device_s){
+      console.log("farmland max: "+f.lighting)
       if( f.lighting > max){
-        console.log("room max11: "+f.lighting)
+        console.log("farmland max11: "+f.lighting)
         max = f.lighting
       }
     }
     return max
   }
   go_bed(){
-    for(let item of this.furniture_s){
-      if(item.type_id < 2000&&item.type_id>999){//如果有灯就关掉
+    for(let item of this.device_s){
+      if(item.type_id < 2000&&item.type_id>999){//如果有补光灯就关掉
         item.close()
       }
     }
   }
   get_up(){
-    for(let item of this.furniture_s){
-      if(item.type_id < 2000&&item.type_id>999){//如果有灯就关掉
+    for(let item of this.device_s){
+      if(item.type_id < 2000&&item.type_id>999){//如果有补光灯就关掉
         item.open()
       }
     }
   }
-  get_air_condition(){
-    for(let item of this.furniture_s){
-      if(item.type_id < 4000&&item.type_id>2999) { //如果有灯就关掉
+  get_temperature_control_device(){
+    for(let item of this.device_s){
+      if(item.type_id < 4000&&item.type_id>2999) { //如果有补光灯就关掉
         return item
       }
     }
-    return new Furniture("null",0,0)
+    return new Device("null",0,0)
   }
 
-  ex_air_condition(){
-    for(let f of this.furniture_s){
+  ex_temperature_control_device(){
+    for(let f of this.device_s){
       if(f.type_id>2999&&f.type_id<4000)
       {
         return true
@@ -56,13 +57,13 @@ export class room{
 }
 
 
-/*export class bedroom extends room{
+/*export class bedroom extends farmland{
 
 
-  //睡觉函数,可以让灯关闭
+  //睡觉函数,可以让补光灯关闭
   go_bed(){
-    for(let item of this.furniture_s){
-      if(item.type_id<2000&&item.type_id>999){//如果有灯就关掉
+    for(let item of this.device_s){
+      if(item.type_id<2000&&item.type_id>999){//如果有补光灯就关掉
         item.close()
       }
     }
@@ -76,13 +77,13 @@ export class room{
 //type=
 //00xx:普通家居
 //10xx:LED
-//20xx:窗帘
-//30xx:空调
+//20xx:水阀
+//30xx:温控设备
 //40xx:风扇
 //50xx:冰箱
 //60XX:扫地机器人
-
-export class Furniture {
+@Observed
+export class Device {
 
   name:string = ''
   switch:number = 0
@@ -103,7 +104,7 @@ export class Furniture {
     if(this.type_id<2000){this.lighting = 0}
   }
 
-  //air_condition
+  //temperature_control_device
   public temp:number = 25;
   max_t:number = 30
   min_t:number = 17;
@@ -126,7 +127,7 @@ export class Furniture {
 
 }
 
-export class LED extends Furniture{
+export class LED extends Device{
   lighting:number = 100;
   turnUp(){
     if(this.lighting<100){
@@ -141,7 +142,7 @@ export class LED extends Furniture{
 }
 
 
-export class air_condition extends Furniture{
+export class temperature_control_device extends Device{
 
 
 

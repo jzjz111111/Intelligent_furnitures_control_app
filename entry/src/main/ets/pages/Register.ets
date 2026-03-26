@@ -122,6 +122,17 @@ struct RegisterPage {
               this.isRegistering = false;
             }
           })
+        Button("退出")
+          .width("90%")
+          .height(50)
+          .backgroundImage($r('app.media.btn_bg'))
+          .backgroundImageSize(ImageSize.Cover)
+          .fontColor(Color.White)
+          .borderRadius(10)
+          .onClick(() => {
+            router.replaceUrl({ url: "pages/Open" });
+          });
+
       }
       .width('100%')
       .height('100%')

@@ -50,11 +50,11 @@ export class _Udp{
   async sendLEDon(id:number){
     let f_type = ''
     if(id<999) {
-      f_type ='furniture'
+      f_type ='device'
     }else if(id<2000){
-      f_type = "light"
+      f_type = "fillLight"
     }else if(id<3000){
-      f_type = "curtain"
+      f_type = "waterValve"
     }
 
     let order = `{"action":"on","target":"${f_type}"}\r\n`
@@ -85,11 +85,11 @@ export class _Udp{
   async sendLEDoff(id:number){
     let f_type = ''
     if(id<999) {
-      f_type ='furniture'
+      f_type ='device'
     }else if(id<2000){
-      f_type = "light"
+      f_type = "fillLight"
     }else if(id<3000){
-      f_type = "curtain"
+      f_type = "waterValve"
     }
 
     let order = `{"action":"off","target":"${f_type}"}\r\n`

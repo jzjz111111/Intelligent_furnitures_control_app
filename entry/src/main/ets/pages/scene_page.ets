@@ -1,5 +1,5 @@
-import { Furniture, room } from "../tool/classes";
-import { control_aircon } from "../tool/component";
+import { Device, farmland } from "../tool/classes";
+import { control_temperature } from "../tool/component";
 import { _IoTad } from "./scan_devices";
 
 interface EnvironmentItemParams {
@@ -19,17 +19,17 @@ interface ControlItemParams {
 }
 
 @Component
-export struct scene {
-  @Link arr_room: room[];
-  @State sceneList: string[] = ["睡眠模式", "离家模式", "娱乐模式"];
-  @State isSleepSceneShow: boolean = false;
-  @State isLeavingSceneShow: boolean = false;
+export struct FarmScenePage {
+  @Link arr_farmland: farmland[];
+  @State sceneList: string[] = ["育苗保温模式", "灌溉节水模式", "通风遮阳模式"];
+  @State isSeedlingSceneShow: boolean = false;
+  @State isIrrigationSceneShow: boolean = false;
   @State currentScene: string = '';
   @State panelHeight: string = "0%";
 
   build(): void {
     Stack() {
-      Image($r('app.media.bottom_bg1'))
+      Image($r('app.media.farm_bg'))
         .objectFit(ImageFit.Cover)
 
       List() {
@@ -66,26 +66,26 @@ export struct scene {
       .alignListItem(ListItemAlign.Center)
       .edgeEffect(EdgeEffect.None);
 
-      if (this.isSleepSceneShow || this.isLeavingSceneShow) {
+      if (this.isSeedlingSceneShow || this.isIrrigationSceneShow) {
         Column() {
           Blank()
             .onClick(() => this.closeScenePanels())
             .backgroundColor('#00000030');
 
-          if (this.isSleepSceneShow) {
-            scenes({
+          if (this.isSeedlingSceneShow) {
+            SeedlingScene({
               scene: this.currentScene,
-              arr_room: this.arr_room,
-              is_show: this.isSleepSceneShow,
+              arr_farmland: this.arr_farmland,
+              is_show: this.isSeedlingSceneShow,
               _height: this.panelHeight
             })
               .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
           }
 
-          if (this.isLeavingSceneShow) {
-            leaving_scene({
-              arr_room: this.arr_room,
-              is_show: this.isLeavingSceneShow,
+          if (this.isIrrigationSceneShow) {
+            IrrigationScene({
+              arr_farmland: this.arr_farmland,
+              is_show: this.isIrrigationSceneShow,
               _height: this.panelHeight
             })
               .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
@@ -100,50 +100,50 @@ export struct scene {
     this.currentScene = this.sceneList[index];
     animateTo({ duration: 300 }, () => {
       this.panelHeight = "100%";
-      if (index === 0) this.isSleepSceneShow = true;
-      if (index === 1) this.isLeavingSceneShow = true;
+      if (index === 0) this.isSeedlingSceneShow = true;
+      if (index === 1) this.isIrrigationSceneShow = true;
     });
   }
 
   private closeScenePanels(): void {
     animateTo({ duration: 300 }, () => {
       this.panelHeight = "0%";
-      this.isSleepSceneShow = false;
-      this.isLeavingSceneShow = false;
+      this.isSeedlingSceneShow = false;
+      this.isIrrigationSceneShow = false;
     });
   }
 
   private getSceneIcon(index: number): Resource {
     const icons = [
-      $r("app.media.ic_bedtime"),
-      $r("app.media.home"),
-      $r("app.media.ic_entertainment")
+      $r("app.media.ic_seedling"),
+      $r("app.media.ic_water"),
+      $r("app.media.ic_vent")
     ];
     return icons[index];
   }
 
   private getSceneDescription(scene: string): string {
     const descriptionMap: DescMap = {
-      "睡眠模式": "关闭灯光，调节空调至适宜睡眠温度",
-      "离家模式": "关闭所有设备，启动安防监控系统",
-      "娱乐模式": "调暗灯光，准备影音娱乐环境"
+      "育苗保温模式": "开启补光与恒温，保持幼苗适宜生长环境",
+      "灌溉节水模式": "智能水肥控制，根据土壤湿度自动节水灌溉",
+      "通风遮阳模式": "自动调节遮阳与通风，降低棚内温湿度"
     };
     return descriptionMap[scene] || '';
   }
 }
 
 @Component
-struct scenes {
+struct SeedlingScene {
   @Link scene: string;
-  @Link arr_room: room[];
+  @Link arr_farmland: farmland[];
   @Link is_show: boolean;
   @Link _height: string;
-  @State furnitureList: Furniture[] = [];
+  @State deviceList: Device[] = [];
   @State isEnabled: boolean = false;
 
   aboutToAppear(): void {
-    this.furnitureList = this.arr_room
-      .flatMap(r => r.furniture_s)
+    this.deviceList = this.arr_farmland
+      .flatMap(r => r.device_s)
       .filter(f => f.type_id > 999 && f.type_id < 3000);
   }
 
@@ -155,7 +155,6 @@ struct scenes {
           .width(24)
           .height(24)
           .onClick(() => this.closePanel());
-
 
         Text(this.scene)
           .fontSize(20)
@@ -171,16 +170,16 @@ struct scenes {
             this.isEnabled = !this.isEnabled
             if(this.isEnabled){
               _IoTad.set_LED_brightness_by_id(1,1001)
-              _IoTad.set_curtain_by_id("off")
-              let new_list:Furniture[] = []
-              for (let i of this.furnitureList){
+              _IoTad.set_waterValve_by_id("off")
+              let new_list:Device[] = []
+              for (let i of this.deviceList){
                 i.switch = 0
                 new_list.push(i)
               }
-              this.furnitureList = new_list
+              this.deviceList = new_list
             }else{
               _IoTad.set_LED_brightness_by_id(5000,1001)
-              _IoTad.set_curtain_by_id("on")
+              _IoTad.set_waterValve_by_id("on")
             }
           })
       }
@@ -189,7 +188,7 @@ struct scenes {
       .backdropBlur(10);
 
       Grid() {
-        ForEach(this.furnitureList, (item: Furniture,value) => {
+        ForEach(this.deviceList, (item: Device,value) => {
           GridItem() {
             Column() {
               Stack() {
@@ -210,7 +209,7 @@ struct scenes {
 
               Text(item.switch ? "已开启" : "已关闭")
                 .fontSize(12)
-                .fontColor(item.switch ? '#27AE60' : '#95A5A6');
+                .fontColor(item.switch ? '#27AE60' : '#95A5A5');
             }
             .padding(12)
             .backgroundColor(Color.White)
@@ -218,7 +217,7 @@ struct scenes {
             .shadow({ radius: 4, color: '#00000010' })
             .onClick(() => {
               let f = this.toggleDevice(item)
-              this.furnitureList[value] = f;
+              this.deviceList[value] = f;
             });
           }
         });
@@ -233,11 +232,11 @@ struct scenes {
     .height('100%');
   }
 
-  private toggleDevice(item: Furniture): Furniture {
+  private toggleDevice(item: Device): Device {
     item.switch = item.switch ? 0 : 1;
-    _IoTad.set_curtain_by_id(item.switch ? "on" : "off");
+    _IoTad.set_waterValve_by_id(item.switch ? "on" : "off");
     _IoTad.set_LED_brightness_by_id(item.switch?5000:1)
-    return new Furniture(item.name,item.switch,item.type_id)
+    return new Device(item.name,item.switch,item.type_id)
   }
 
   private closePanel(): void {
@@ -246,17 +245,17 @@ struct scenes {
   }
 
   private getDeviceIcon(typeId: number): Resource {
-    return typeId < 2000 ? $r("app.media.light") : $r("app.media.curtain");
+    return typeId < 2000 ? $r("app.media.fill_light") : $r("app.media.water_valve");
   }
 }
 
 @Component
-struct leaving_scene {
-  @Link arr_room: room[];
+struct IrrigationScene {
+  @Link arr_farmland: farmland[];
   @Link is_show: boolean;
   @Link _height: string;
-  @State isAirConditionShow: boolean = false;
-  @State petFoodRemaining: number = 65; // 添加剩余量状态
+  @State isTemperatureControlDeviceShow: boolean = false;
+  @State soilHumidityRemaining: number = 65;
 
   build(): void {
     Stack(){
@@ -267,7 +266,7 @@ struct leaving_scene {
             .width(24)
             .height(24)
             .onClick(() => this.closePanel());
-          Text("离家模式")
+          Text("灌溉节水模式")
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .layoutWeight(1)
@@ -278,24 +277,26 @@ struct leaving_scene {
         .backdropBlur(10);
 
         Row() {
-          EnvironmentItem({
+          FarmEnvItem({
             icon: $r("app.media.ic_temp"),
             value: '26℃',
-            title: '室内温度',
+            title: '棚内温度',
             color: '#E74C3C'
           });
 
-          EnvironmentItem({
+          FarmEnvItem({
             icon: $r("app.media.ic_humidity"),
-            value: '55%',
-            title: '环境湿度',
+            value: `${this.soilHumidityRemaining}%`,
+            //value: '55%',
+            title: '土壤湿度',
             color: '#3498DB'
           });
 
-          EnvironmentItem({
+          FarmEnvItem({
             icon: $r("app.media.ic_gas"),
-            value: '正常',
-            title: '燃气状态',
+            value: this.getCO2Status(),
+            //value: '正常',
+            title: 'CO₂浓度',
             color: '#ff544539'
           });
         }
@@ -303,33 +304,34 @@ struct leaving_scene {
         .justifyContent(FlexAlign.SpaceEvenly);
 
         List() {
-          ControlItem({
+          FarmDeviceItem({
             params: {
               icon: $r("app.media.ic_camera"),
-              title: "安防摄像头",
+              title: "农田监控",
               status: "在线",
               buttonText: "实时查看",
               onAction: () => this.viewCamera()
             }
           });
 
-          ControlItem({
+          FarmDeviceItem({
             params: {
               icon: $r("app.media.ac_icon"),
-              title: "空调控制",
-              status: "26℃ 制冷模式",
+              title: "棚内温控",
+              status: "26℃ 恒温模式",
               buttonText: "远程调节",
-              onAction: () => this.isAirConditionShow = true
+              onAction: () => this.isTemperatureControlDeviceShow = true
             }
           });
 
-          ControlItem({
+          FarmDeviceItem({
             params: {
               icon: $r("app.media.ic_feeder"),
-              title: "宠物喂食器",
-              status: `剩余量：${this.petFoodRemaining}%`, // 绑定动态值
-              buttonText: "立即投喂",
-              onAction: () => this.feedPet()
+              title: "水肥灌溉",
+              //status: `土壤湿度：${this.soilHumidityRemaining}%`,
+              status: `土壤湿度：${this.soilHumidityRemaining}%\n ${this.getHumidityTip(this.soilHumidityRemaining)}`,
+              buttonText: "立即灌溉",
+              onAction: () => this.autoIrrigation()
             }
           });
         }
@@ -337,37 +339,49 @@ struct leaving_scene {
         .margin(16)
         .backgroundColor(Color.White)
         .shadow({ radius: 8, color: '#00000010' });
-
-
       }
       .backgroundColor('#F8F9FA')
       .height('100%');
 
-      if (this.isAirConditionShow) {
-        control_aircon({
-          is_show: this.isAirConditionShow,
-          arr_room: this.arr_room
+      if (this.isTemperatureControlDeviceShow) {
+        control_temperature({
+          is_show: this.isTemperatureControlDeviceShow,
+          arr_farmland: this.arr_farmland
         });
       }
     }
-
   }
 
   private viewCamera(): void {
-    // 查看摄像头逻辑
   }
 
-  private feedPet(): void {
-    this.petFoodRemaining = Math.max(this.petFoodRemaining - 5, 0);
+  private autoIrrigation(): void {
+    this.soilHumidityRemaining = Math.max(this.soilHumidityRemaining +10, 80);
   }
+
   private closePanel(): void {
     this.is_show = false;
     this._height = "0%";
   }
+  private getHumidityTip(humidity: number): string {
+    if (humidity < 60) {
+      return "⚠️ 偏干，建议灌溉";
+    } else if (humidity > 80) {
+      return "⚠️ 过湿，注意排水";
+    } else {
+      return "✅ 湿度适宜";
+    }
+  }
+  private getCO2Status(): string {
+    const co2 = 580; // 这里接传感器
+    if (co2 > 1000) return "⚠️ 超高";
+    if (co2 > 600) return "⚠️ 偏高";
+    return "✅ 正常";
+  }
 }
 
 @Component
-struct EnvironmentItem {
+struct FarmEnvItem {
   @Prop icon: Resource;
   @Prop value: string;
   @Prop title: string;
@@ -398,7 +412,7 @@ struct EnvironmentItem {
 }
 
 @Component
-struct ControlItem {
+struct FarmDeviceItem {
   @Prop params: ControlItemParams;
 
   build(): void {

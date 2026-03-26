@@ -21,11 +21,11 @@ struct Test_Page {
         })
 
       Row(){
-        Button("窗帘开").onClick(()=>{
-          _IoTad.set_curtain_by_id("on")
+        Button("水阀开").onClick(()=>{
+          _IoTad.set_waterValve_by_id("on")
         })
-        Button("窗帘关").onClick(()=>{
-          _IoTad.set_curtain_by_id("off")
+        Button("水阀关").onClick(()=>{
+          _IoTad.set_waterValve_by_id("off")
         })
       }
       Row(){
@@ -37,18 +37,18 @@ struct Test_Page {
         })
       }
       Row(){
-        Button("空调25").onClick(()=>{
-          _IoTad.set_air_condition_by_id(25,"on","zl")
+        Button("温控设备25").onClick(()=>{
+          _IoTad.set_temperature_control_device_by_id(25,"on","zl")
         })
-        Button("空调28").onClick(()=>{
-          _IoTad.set_air_condition_by_id(28,"on","cs")
+        Button("温控设备28").onClick(()=>{
+          _IoTad.set_temperature_control_device_by_id(28,"on","cs")
         })
       }
       Row(){
-        Button("灯开").onClick(()=>{
+        Button("补光灯开").onClick(()=>{
           _IoTad.set_LED_brightness_by_id(8888)
         })
-        Button("灯关").onClick(()=>{
+        Button("补光灯关").onClick(()=>{
           _IoTad.set_LED_brightness_by_id(1)
         })
       }

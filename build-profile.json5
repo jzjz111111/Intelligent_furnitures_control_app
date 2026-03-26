@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\one\\.ohos\\config\\default_MYcpp_4zW8kqb_e50s1ADEzLGw-CigK5dwjse4ClE0zdwka58=.cer",
-          "storePassword": "0000001BF9254C3DB6F76CF78D6E9762A4DA381507E6F1D4B09C1A9D0A991C105A199D8F1F23D4C61FC451",
+          "certpath": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B56546B92B0D6A2B2B13F1C1ECBC2C2E974AC800538411EDD8DA502171B3D796D182A4B626D1EDF",
-          "profile": "C:\\Users\\one\\.ohos\\config\\default_MYcpp_4zW8kqb_e50s1ADEzLGw-CigK5dwjse4ClE0zdwka58=.p7b",
+          "keyPassword": "0000001B974F42CDE5CCCEDD7931B013D307526C90898BCAB79454BDE6CF5D85F79D7AFD6655BA5419703C",
+          "profile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\one\\.ohos\\config\\default_MYcpp_4zW8kqb_e50s1ADEzLGw-CigK5dwjse4ClE0zdwka58=.p12"
+          "storeFile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p12",
+          "storePassword": "0000001B4574A378ED5869CF7A9A12A4757EE48762A1ED43A5A6B5FD1CEF77F830A6156C71A9F8D09A586F"
         }
       }
     ],

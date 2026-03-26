@@ -1,39 +1,45 @@
 import { LocalStoraga } from "../data/LocalStorage";
-import { RoomDatabase } from "../data/RdbStorage";
+import { FarmlandDatabase } from "../data/RdbStorage";
 import { tcp } from "../pages/Index";
 import { API_DeepSeek } from "../pages/OpenAI_Page";
 import { _IoTad } from "../pages/scan_devices";
 //import { tcp, udp } from "../pages/Index";
-import {  Furniture, room } from "./classes";
+import {  Device, farmland } from "./classes";
 import { router } from "@kit.ArkUI";
 import { face_cam } from "../pages/face_cma";
+import { preferences } from '@kit.ArkData';
+import cryptoFramework from '@ohos.security.cryptoFramework';
+import common from '@ohos.app.ability.common';
+import util from '@ohos.util';
 
 
-let new_arr_rooms:room[]
-let new_arr_f:Furniture[]
 
-let Room_db:RoomDatabase = new RoomDatabase(globalThis.getContext())
+
+let new_arr_farmlands:farmland[]
+let new_arr_f:Device[]
+
+let Farmland_db:FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 let new_f_R_Id:number
 
 
 @Component
-export struct furniture_long {
+export struct device_long {
 
   @Link _height:string
-  @Prop room1:room
-  @Link is_show_f:boolean
-  @Link arr_f:Furniture[]
-  @Link index_f:number
+  @Prop farmland1:farmland
+  @Link is_show_d:boolean
+  @Link arr_f:Device[]
+  @Link index_d:number
   o_name:string = ''
   @State Light_number:number = 0
   @Link is_chang:boolean
   @State is_c:boolean = true
-  @State o_f:Furniture = new Furniture('',0,0)
-  @Link t_f:Furniture
+  @State o_f:Device = new Device('',0,0)
+  @Link t_f:Device
 
   aboutToAppear(): void {
-    this.Light_number = this.arr_f[this.index_f].lighting
-   this.o_f = this.arr_f[this.index_f]
+    this.Light_number = this.arr_f[this.index_d].lighting
+   this.o_f = this.arr_f[this.index_d]
   }
   build() {
     Stack() {
@@ -53,12 +59,12 @@ export struct furniture_long {
         Row(){
           Button('删除')
             .onClick(async ()=>{
-              let r_id = await Room_db.getRoomsIdByName(this.room1.name)
+              let r_id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
 
-              await Room_db.deleteFurnitureByRoomIdAndName(r_id,this.arr_f[this.index_f].name)
-              this.arr_f = this.arr_f.filter((element) => element.name!== this.arr_f[this.index_f].name);
+              await Farmland_db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
+              this.arr_f = this.arr_f.filter((element) => element.name!== this.arr_f[this.index_d].name);
               this.is_chang = !this.is_chang
-              this.is_show_f = false
+              this.is_show_d = false
               animateTo({duration:500},()=>{this._height = '0%'})
 
             })
@@ -66,7 +72,7 @@ export struct furniture_long {
             .width(100)
           Button('返回')
             .onClick(() => {
-              this.is_show_f = false
+              this.is_show_d = false
               this.is_chang = !this.is_chang
               animateTo({duration:500},()=>{this._height = '0%'})
             })
@@ -90,7 +96,7 @@ export struct furniture_long {
             x:20
           })
         if(this.o_f.lighting != 0){
-          Slider({value:this.arr_f[this.index_f].lighting,max:10,min:1})
+          Slider({value:this.arr_f[this.index_d].lighting,max:10,min:1})
             .width('90%')
             .showSteps(true)
             .position({
@@ -98,12 +104,12 @@ export struct furniture_long {
               y:300
             })
             .onChange((value)=>{
-              this.arr_f[this.index_f].lighting = value
+              this.arr_f[this.index_d].lighting = value
               this.Light_number = value
               console.log("LL:"+this.Light_number.toString())
               this.is_chang = !this.is_chang
               _IoTad.set_LED_brightness_by_id(value*1000)
-              this.o_f = this.arr_f[this.index_f]
+              this.o_f = this.arr_f[this.index_d]
 
               //udp.sendLED_chang(value)
             })
@@ -112,7 +118,7 @@ export struct furniture_long {
       if(this.o_f.type_id >2999 && this.o_f.type_id<4000){
 
           Column(){
-            my_airCon_edit({ is_show: this.is_show_f,item:this.o_f })
+            my_temCon_edit({ is_show: this.is_show_d,item:this.o_f })
           }
           .height("55%")
           .width('100%')
@@ -127,19 +133,19 @@ export struct furniture_long {
 }
 
 @Component
-struct furniture_edit{
+struct device_edit{
 
-  @Link furniturn:Furniture
+  @Link device:Device
   @Link _height:string
-  @Prop room1:room
-  @Link is_show_f:boolean
+  @Prop farmland1:farmland
+  @Link is_show_d:boolean
   @State Light_number:number = 0
-  @State o_f:Furniture = new Furniture('',0,0)
+  @State o_f:Device = new Device('',0,0)
   @State is_c:boolean = false
 
   aboutToAppear(): void {
-    this.Light_number = this.furniturn.lighting
-    this.o_f = this.furniturn
+    this.Light_number = this.device.lighting
+    this.o_f = this.device
     console.log("ccc:::"+this.is_c)
   }
   build() {
@@ -161,7 +167,7 @@ struct furniture_edit{
         Row(){
           Button('返回')
             .onClick(() => {
-              this.is_show_f = false
+              this.is_show_d = false
               animateTo({duration:500},()=>{this._height = '0%'})
             })
             .padding(5)
@@ -184,7 +190,7 @@ struct furniture_edit{
             x:20
           })
         if(this.o_f.lighting != 0){
-          Slider({value:this.furniturn.lighting,max:10,min:1})
+          Slider({value:this.device.lighting,max:10,min:1})
             .width('90%')
             .showSteps(true)
             .position({
@@ -192,11 +198,11 @@ struct furniture_edit{
               y:300
             })
             .onChange((value)=>{
-              this.furniturn.lighting = value
+              this.device.lighting = value
               this.Light_number = value
               console.log("LL:"+this.Light_number.toString())
-              tcp.sendLED_chang(value,this.furniturn.type_id)
-              this.o_f = this.furniturn
+              tcp.sendLED_chang(value,this.device.type_id)
+              this.o_f = this.device
               //udp.sendLED_chang(value)
             })
         }
@@ -216,7 +222,7 @@ struct furniture_edit{
               })
 
           }
-          my_airCon_edit({is_show:this.is_show_f,item:this.furniturn})
+          my_temCon_edit({is_show:this.is_show_d,item:this.device})
         }.width("100%").height('100%')
         .backgroundColor('#e0efff')
 
@@ -229,121 +235,117 @@ struct furniture_edit{
   }
 }
 @Component
-export struct add_furniture_page {
+export struct add_device_page {
   @Link _height:string
-  @Link arr: Furniture[]
-  @State fur_name: string = ''
+  @Prop arr: Device[]
+  //@Link arr: Device[]
+  @State dev_name: string = ''
   @Link is_show: boolean
   type:number = 0
 
   build() {
-
     Stack() {
       Column() {
-        TextInput({ placeholder: '输入家具名称' ,text:this.fur_name})
+        TextInput({ placeholder: '输入设备名称' ,text:this.dev_name})
           .onChange((value) => {
-            this.fur_name = value
+            this.dev_name = value
           })
-          .bindMenu(this.FurnitureMenu)
+          .bindMenu(this.DeviceMenu)
           .width(300)
-          .position({
-            y:50
-          })
-        TextInput({ placeholder: '输入家具ID' })
+          .position({ y:50 })
+
+        TextInput({ placeholder: '输入设备ID' })
           .onChange((value) => {
             this.type = Number(value)
           })
           .width(300)
-          .position({
-            y:100
-          })
+          .position({ y:100 })
+
         Button('完成')
           .backgroundColor('#00ffffff')
           .fontColor("#ff2f2f2f")
           .onClick(async () => {
-            if (this.fur_name != ''&&this.type != 0) {
-              //数据库
-              console.log('roomwwwwww'+new_f_R_Id)
-              let success = await Room_db.insertFuByRoomId(new_f_R_Id,this.fur_name,this.type)
-              console.log('roomwwwwww  success'+success)
+            if (this.dev_name != '' && this.type != 0) {
+              console.log('farmlandwwwwww'+new_f_R_Id)
+              let success = await Farmland_db.insertFuByFarmlandId(new_f_R_Id,this.dev_name,this.type)
+              console.log('farmlandwwwwww  success'+success)
+
               if(success == 1 ){
-                this.arr.push(new Furniture(this.fur_name, 0,this.type))
+                // 创建新数组，触发 @Link 刷新 UI
+                this.arr = [...this.arr, new Device(this.dev_name, 0, this.type)]
+                //this.arr = this.arr.slice()
               }else{
                 AlertDialog.show({
                   message:"名字或ID重复了喂 >o< "
                 })
               }
-
             }
-            new_arr_f = this.arr
-            console.log("room^^:"+JSON.stringify(new_arr_f))
+
             animateTo({duration:500},()=>{this._height = '0%'})
             this.is_show = false
           })
       }
-      .height("55%")
+      .height("50%")
       .width('100%')
       .borderRadius(20)
-      .backgroundImage($r('app.media.bottom_bg1'))
+      .backgroundImage($r('app.media.farm_bg'))
       .backgroundImageSize(ImageSize.Cover)
       .justifyContent(FlexAlign.End);
     }
-
     .height(this._height)
     .width('100%')
     .backgroundColor('#9c000000')
-
   }
   @Builder
-  FurnitureMenu(){
+  DeviceMenu(){
     Menu(){
       MenuItem({/*startIcon:*/content:'LED'}).onClick(()=>{
-        this.fur_name = 'LED'
+        this.dev_name = 'LED'
       })
-      MenuItem({/*startIcon:*/content:'窗帘'}).onClick(()=>{
-        this.fur_name = '窗帘'
+      MenuItem({/*startIcon:*/content:'水阀'}).onClick(()=>{
+        this.dev_name = '水阀'
       })
-      MenuItem({/*startIcon:*/content:'空调'}).onClick(()=>{
-        this.fur_name = '空调'
+      MenuItem({/*startIcon:*/content:'温控设备'}).onClick(()=>{
+        this.dev_name = '温控设备'
       })
-      MenuItem({/*startIcon:*/content:'冰箱'}).onClick(()=>{
-        this.fur_name = '冰箱'
-      })
-      MenuItem({/*startIcon:*/content:'扫地机器人'}).onClick(()=>{
-        this.fur_name = '扫地机器人'
-      })
+      //MenuItem({/*startIcon:*/content:'冰箱'}).onClick(()=>{
+        //this.dev_name = '冰箱'
+      //})
+      //MenuItem({/*startIcon:*/content:'扫地机器人'}).onClick(()=>{
+        //this.dev_name = '扫地机器人'
+      //})
     }
   }
 }
 
 @Component
-export struct add_room_page {
-  @Link arr: room[]
-  @State fur_name: string = ''
+export struct add_farmland_page {
+  @Link arr: farmland[]
+  @State dev_name: string = ''
   @Link is_show: boolean
 
   build() {
 
     Stack() {
       Column() {
-        TextInput({ placeholder: '输入房间名称' })
+        TextInput({ placeholder: '输入农田名称' })
           .onChange((value) => {
-            this.fur_name = value
+            this.dev_name = value
           })
         Row(){
           Button('完成')
             .backgroundColor('#00ffffff')
             .fontColor("#ff2f2f2f")
             .onClick(async () => {
-              if (this.fur_name != '') {
-                let success = await Room_db.insertRoom(new room(this.fur_name, []))
+              if (this.dev_name != '') {
+                let success = await Farmland_db.insertFarmland(new farmland(this.dev_name, []))
                 if(success != -1){
                   setTimeout(()=>{
-                    this.arr.push(new room(this.fur_name, []))
+                    this.arr.push(new farmland(this.dev_name, []))
                   },500)
                 }else{
                   AlertDialog.show({
-                    message:"名字重复了喂 >o< "
+                    message:"名字重复了哦"
                   })
                 }
 
@@ -365,54 +367,54 @@ export struct add_room_page {
         .width('100%')
         .justifyContent(FlexAlign.SpaceAround)
       }
-      .height("55%")
+      .height('50%')
       .width('100%')
       .borderRadius(20)
       .backgroundImage($r('app.media.bottom_bg4'))
       .backgroundImageSize(ImageSize.Cover)
-      .justifyContent(FlexAlign.End);
+      .justifyContent(FlexAlign.End)
     }
 
     .height('100%')
     .width('100%')
+    //.backgroundColor(Color.White)
     .backgroundColor('#9c000000')
 
   }
 }
-
 @Component
 export struct myList {
 
 
-  @Prop room1: room
+  @ObjectLink farmland1: farmland
   @State num1: number = 1
   @State num2: number = 1
-  @Prop arr_fnt: Furniture[]
+  @Prop arr_dev: Device[]
   @State show_add: boolean = false
   @Prop index:number
-  @State is_show_f:boolean = false
+  @State is_show_d:boolean = false
   //@State f_name:string = ''
   //@State f_type:number = 0
   //@State f_switch:number = 0
   @Link is_sleep:boolean
-  @State index_f:number = 0
+  @State index_d:number = 0
   @State _height:string = "0%"
   //@State _brightness:number = 0
-
-
-  @State this_f:Furniture = new Furniture('',0,1)
+  @Link showList: boolean;
+  @State this_d:Device = new Device('',0,1)
   @State is_change:boolean = true
 
   aboutToAppear(): void {
 
   }
   aboutToDisappear(): void {
-    this.room1.furniture_s = this.arr_fnt
+    this.farmland1.device_s = this.arr_dev
+    //this.farmland1.device_s = this.farmland1.device_s.slice()
   }
   build() {
     Stack() {
       List() {
-        ForEach(this.arr_fnt, (item: Furniture, index) => {
+        ForEach(this.arr_dev, (item: Device, index) => {
           ListItem() {
             Row(){
               myRow({ item1: item ,is_sleep:this.is_sleep ,is_chang:this.is_change})
@@ -422,9 +424,9 @@ export struct myList {
                 .onAction((event: GestureEvent|undefined) => {
                   if(event){
                     if (event.repeat) {
-                      this.this_f = item
-                      this.is_show_f = true
-                      this.index_f = index
+                      this.this_d = item
+                      this.is_show_d = true
+                      this.index_d = index
                       animateTo({duration:200},()=>{
                         this._height = "100%"
                       })
@@ -438,45 +440,45 @@ export struct myList {
             .onClick(()=>{
               if(item.type_id<2000){
                 if(item.type_id>1100){
-                  /*console.log("感应灯111")
+                  /*console.log("感应补光灯111")
                   setTimeout(()=>{
-                    this.arr_fnt[index] = new Furniture(item.name,1,item.type_id)
-                    this.arr_fnt[index].lighting = 5000
+                    this.arr_dev[index] = new Device(item.name,1,item.type_id)
+                    this.arr_dev[index].lighting = 5000
                     setTimeout(()=>{
-                      this.arr_fnt[index] = new Furniture(item.name,0,item.type_id)
-                      this.arr_fnt[index].lighting = 0
+                      this.arr_dev[index] = new Device(item.name,0,item.type_id)
+                      this.arr_dev[index].lighting = 0
                     },2000)
                   },2000)*/
 
                 }else{
                   if(item.switch){
-                    this.arr_fnt[index] = new Furniture(item.name,0,item.type_id)
-                    this.arr_fnt[index].lighting = 0
+                    this.arr_dev[index] = new Device(item.name,0,item.type_id)
+                    this.arr_dev[index].lighting = 0
                     _IoTad.set_LED_brightness_by_id(1)
                   }else{
-                    this.arr_fnt[index] = new Furniture(item.name,1,item.type_id)
-                    this.arr_fnt[index].lighting = 5
+                    this.arr_dev[index] = new Device(item.name,1,item.type_id)
+                    this.arr_dev[index].lighting = 5
                     _IoTad.set_LED_brightness_by_id(5000)
-                    console.log("ROom F IS :"+JSON.stringify(this.arr_fnt))
+                    console.log("Farmland F IS :"+JSON.stringify(this.arr_dev))
                   }
                 }
               }else if(item.type_id>=3000&&item.type_id<4000){
                 if(item.switch){
-                  this.arr_fnt[index] = new Furniture(item.name,0,item.type_id)
-                  _IoTad.set_air_condition_by_id(item.temp,"off",item.mode)
+                  this.arr_dev[index] = new Device(item.name,0,item.type_id)
+                  _IoTad.set_temperature_control_device_by_id(item.temp,"off",item.mode)
                 }else{
-                  this.arr_fnt[index] = new Furniture(item.name,1,item.type_id)
-                  _IoTad.set_air_condition_by_id(item.temp,"on",item.mode)
+                  this.arr_dev[index] = new Device(item.name,1,item.type_id)
+                  _IoTad.set_temperature_control_device_by_id(item.temp,"on",item.mode)
                 }
               }
               else{
 
                 if(item.switch){
-                  this.arr_fnt[index] = new Furniture(item.name,0,item.type_id)
-                  set_furniture(item,"off")
+                  this.arr_dev[index] = new Device(item.name,0,item.type_id)
+                  set_device(item,"off")
                 }else{
-                  this.arr_fnt[index] = new Furniture(item.name,1,item.type_id)
-                  set_furniture(item,"on")
+                  this.arr_dev[index] = new Device(item.name,1,item.type_id)
+                  set_device(item,"on")
                 }
               }
 
@@ -491,7 +493,7 @@ export struct myList {
           Row(){
             Button("+")
               .onClick(async () => {
-                new_f_R_Id = await Room_db.getRoomsIdByName(this.room1.name)
+                new_f_R_Id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
                 this.show_add = true
                 animateTo({duration:200},()=>{
                   this._height = "100%"
@@ -509,39 +511,54 @@ export struct myList {
           .backgroundColor("#cbb6c3f5")
           .borderRadius(20);
         }
+        ListItem() {
+          Button("完成")
+            .width("90%")
+            .height(50)
+            .backgroundColor("#4A90E2")
+            .fontColor(Color.White)
+            .fontSize(18)
+            .borderRadius(12)
+            .onClick(() => {
+              this.showList=false;
+            })
+            .margin(10)
+        }
       }
       .height("90%")
       .lanes(2)
 
+
       if (this.show_add) {
-        add_furniture_page({
+        add_device_page({
           _height:this._height,
-          arr: this.arr_fnt,
+          arr: this.arr_dev,
           is_show: this.show_add ,
-          })
+        })
       }
-      if(this.is_show_f){
-        furniture_long({
+      if(this.is_show_d){
+        device_long({
           _height:this._height,
-          t_f:this.this_f,
-          room1:this.room1,
-          is_show_f:this.is_show_f,
-          arr_f:this.arr_fnt,
+          t_f:this.this_d,
+          farmland1:this.farmland1,
+          is_show_d:this.is_show_d,
+          arr_f:this.arr_dev,
           is_chang:this.is_change,
-          index_f:this.index_f
+          index_d:this.index_d
         })
       }
 
     }.onClick(()=>{
-      new_arr_f = this.arr_fnt
+      new_arr_f = this.arr_dev
     })
   }
 }
 
 @Component
 export struct myRow {
+  //@Prop item1: Device
 
-  @State item1: Furniture = new Furniture("w", 0,0)
+  @State item1: Device = new Device("w", 0,0)
   @State is_clicknum: number = 0;
   @Prop is_sleep:boolean
   @Link is_chang:boolean
@@ -554,17 +571,17 @@ export struct myRow {
           if(this.item1.type_id<999){
 
           }else if(this.item1.type_id<1999){
-            Image($r('app.media.curtain6'))
+            Image($r('app.media.water_valve6'))
               .height(20)
               .width(20)
               .fillColor('rgb(70, 100, 180)');
           }else if(this.item1.type_id<2999){
-            Image($r('app.media._curtain'))
+            Image($r('app.media._water_valve'))
               .height(20)
               .width(20)
               .fillColor('rgb(70, 100, 180)');
           }else if(this.item1.type_id<3999){
-            Image($r('app.media._air_condition'))
+            Image($r('app.media._temperature_control_device'))
               .height(20)
               .width(20)
               .fillColor('rgb(70, 100, 180)');
@@ -592,7 +609,7 @@ export struct myRow {
         .width("100%")
         .margin(2)
         .padding(10)
-        .backgroundImage(this.item1.switch?$r('app.media.furniture_bg2') :$r('app.media.lights_bg'))
+        .backgroundImage(this.item1.switch?$r('app.media.device_bg2') :$r('app.media.lights_bg'))
         .backgroundImageSize(ImageSize.Cover)
         .borderRadius(20)
         .borderWidth(2)
@@ -604,7 +621,7 @@ export struct myRow {
       Stack(){
         Row() {
           Text(this.item1.name)
-          Image($r('app.media.curtain6'))
+          Image($r('app.media.water_valve6'))
             .height(20)
             .width(20)
             .fillColor('rgb(70, 100, 180)');
@@ -614,7 +631,7 @@ export struct myRow {
         .width("100%")
         .margin(2)
         .padding(10)
-        .backgroundImage(this.item1.switch?$r('app.media.furniture_bg2') :$r('app.media.lights_bg'))
+        .backgroundImage(this.item1.switch?$r('app.media.device_bg2') :$r('app.media.lights_bg'))
         .backgroundImageSize(ImageSize.Cover)
         .borderRadius(20)
         .borderWidth(2)
@@ -626,261 +643,297 @@ export struct myRow {
 }
 
 @Component
-export struct displayRoom {
-
-
-  //可以添加从数据库取出room的方法存入arr_room
-  @Link arr_room: room[]
-  @Link is_show_r:boolean
-  @Link is_sleep:boolean
+export struct displayFarmland {
+  @ObjectLink currentFarm: farmland;
+  @Link is_sleep: boolean;
   @State is_show_lights:boolean = false
-  @State is_show_air_condition:boolean = false
+  @State is_show_temperature_control_device:boolean = false
   @State is_show_robot:boolean = false
-  @State is_show_curtain:boolean = false
-  @State is_show_fan:boolean = false
-  @State value:number = 0
-  //@State is_edit:boolean = false
-  @State edit_f:Furniture = new Furniture("",0,0)
-  @State edit_height:string = '0%'
-  l:number = 0
-  async aboutToAppear(): Promise<void> {
-    new_arr_rooms = this.arr_room
-    this.l = this.arr_room.length
-  }
-  aboutToRecycle(): void {
-    console.log("room:Recycle")
-  }
-
-
-  @Builder
-  MyBuilder() {
-    Column() {
-      Text("+")
-        .fontSize(20)
-    }
-    .width(50)
-    .backgroundColor('#ff8f8f8f')
-  }
+  @State is_show_waterValve:boolean = false
+  @State is_show_dan:boolean = false
+  @State edit_f:Device = new Device("",0,0)
+  @Link showList: boolean;
 
   build() {
     Stack() {
-        Tabs() {
-          TabContent(){
-            Stack() {
-              Image($r('app.media.bottom_bg1'))
-                .objectFit(ImageFit.Cover);
-              Column(){
-                show_f({arr:this.arr_room,f:this.edit_f})
-              List() {
-                ListItem() {
-                  Text("灯光控制")
-                    .fontColor('rgb(70, 100, 180)')
-                    .position({ y: 40, x: 40 });
-                }
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding({ top: 5, bottom: 10, right: 10, left: 10 }).margin({ top: 0, bottom: 15, left: 20, right: 20 })
-                .backgroundImage($r('app.media.c_light2'))
-                .backgroundImageSize(ImageSize.Cover)
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .onClick(() => {
-                  this.is_show_lights = true;
-                });
-
-                ListItem() {
-                  Text("窗帘控制")
-                    .fontColor('rgb(70, 100, 180)')
-                    .position({ y: 40, x: 40 });
-                }
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding({ top: 5, bottom: 10, right: 10, left: 10 }).margin({ top: 0, bottom: 15, left: 10, right: 10 })
-                .backgroundImage($r('app.media.curtain5'))
-                .backgroundImageSize(ImageSize.Cover)
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .onClick(() => {
-                  this.is_show_curtain = true
-                })
-
-                ListItem() {
-                  Column(){
-                    Text("门锁")
-                      .fontColor('rgb(70, 100, 180)')
-                      .position({ y: 30, x: 35  });
-                    Image($r('app.media._door'))
-                      .size({height:90,width:90})
-                      .position({x:30,y:70})
-                  }.width("100%").height("100%")
-
-                }
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding(10).margin({ top: 0, bottom: 40, left: 20, right: 20 })
-                .backgroundColor(Color.White)
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .onClick(() => {
-                  this.is_show_robot = true
-                  console.log("oooooooooo")
-                  console.log("oooooooooo")
-                })
-
-                ListItem() {
-                  Text("空调控制")
-                    .fontColor('rgb(70, 100, 180)')
-                    .position({ y: 40, x: 35 });
-                }
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding(10).margin({ top: 0, bottom: 40, left: 10, right: 10 })
-                .backgroundImage($r('app.media.ufo2'))
-                .backgroundImageSize(ImageSize.Cover)
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .onClick(() => {
-                  this.is_show_air_condition = true
-                })
-                ListItem() {
-                  Stack(){
-                    Text("风扇控制")
-                      .fontColor('rgb(70, 100, 180)')
-                      .position({ y: 15, x: 5 });
-                    Image($r("app.media._fan"))
-                      .size({height:80,width:80})
-                      .position({x:5,y:40})
-                      .fillColor("#ff929292")
-                  }
-                }
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding(10).margin({ top: 0, bottom: 40, left: 20, right: 10 })
-                .backgroundColor(Color.White)
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .onClick(() => {
-                  this.is_show_fan = true
-                })
-                ListItem(){
-                  Text("+")
-                    .fontSize(200)
-                    .fontColor("#ff929292")
-                }
-                .shadow({ radius: 5, offsetX: 10, offsetY: 10, color: "#939391" })
-                .borderRadius(10)
-                .backgroundColor(Color.White)
-                .width(150).height(200).borderWidth(2).borderColor(Color.White).padding(10).margin({ top: 0, bottom: 40, left: 10, right: 10 })
-              }.lanes(2)
-              }
-              if (this.is_show_lights) {
-                control_lights({ arr_room: this.arr_room, is_show: this.is_show_lights })
-              }
-              if (this.is_show_air_condition) {
-                control_aircon({ arr_room: this.arr_room, is_show: this.is_show_air_condition })
-              }
-              if (this.is_show_curtain) {
-                control_curtain({ arr_room: this.arr_room, is_show: this.is_show_curtain });
-              }
-              //门锁
-              if(this.is_show_robot){
-                face_cam({is_show:this.is_show_robot})
-              }
-              if(this.is_show_fan){
-                control_fan({arr_room:this.arr_room,is_show:this.is_show_fan})
-              }
-            }
-
-          }
-          .tabBar("全屋")
-          ForEach(this.arr_room, (item: room, index) => {
-            if(item.name != "null"){
-              TabContent() {
-                myList({room1:this.arr_room[index],arr_fnt:this.arr_room[index].furniture_s,index:index,is_sleep:this.is_sleep})
-              }
-              .tabBar(item.name)
-              .width(200)
-              .height(10)
-            }
-          })
-        }
-        .barMode(this.l>3?BarMode.Scrollable:BarMode.Fixed)
-        .barWidth("100%")
-      if(this.is_show_r){
-        add_room_page({ arr: this.arr_room, is_show: this.is_show_r })
-      }
-      /*if(this.is_edit){
-        furniture_edit({
-          furniturn:this.edit_f,
-          is_show_f:this.is_edit,
-          _height:this.edit_height
-        })
-      }*/
+      myList({
+        farmland1: this.currentFarm,
+        arr_dev: this.currentFarm.device_s,
+        index: 0,
+        is_sleep: this.is_sleep,
+        showList: this.showList
+      })
     }
   }
 }
 
 @Component
-struct control_lights{
-
-  @Link is_show:boolean
-  @Link arr_room:room[]
+export struct FarmlandOverview {
+  @Link arr_farmland: farmland[]
+  @Link is_show_lights: boolean
+  @Link is_show_temperature_control_device: boolean
+  @Link is_show_robot: boolean
+  @Link is_show_waterValve: boolean
+  @Link is_show_dan: boolean
+  @State edit_f: Device = new Device("", 0, 0)
 
   build() {
-    Column(){
-      Button("返回").onClick(()=>{this.is_show = false})
-        .onClick(() => this.is_show = false)
-        .padding(10)
-        .backgroundColor(Color.White)
-        .borderWidth(2)
-        .borderColor('#6d9cee')
-        .fontColor('#6d9cee')
-        .margin(10);
+    Stack() {
+      Column() {
+        Row() {
+          Text("设备总控")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+        }
+        .width('100%')
+        .height(60)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#10B981')
+        .padding({ top: 10 })
 
-      if(this.arr_room.length != 0){
-        List(){
-          ForEach(this.arr_room,(item:room,index)=>{
-            ListItem(){
-              Column(){
-                Text(item.name)
-                mySliber({
-                  _room:item,
-                })
-              }.width(320).padding(20).borderRadius(15).margin(20)
-              .backgroundColor(
-                index % 3 === 0? '#ffffe1f9' :
-                  index % 3 === 1? '#ffece6fa' :
-                    '#ffe0ebff'
-              )
-              .shadow({
-                radius: 5,
-                offsetX: 20,
-                offsetY: 20,
-                color: "#a8474545"
-              });
+        Scroll() {
+          Grid() {
+            ForEach(this.getDeviceList(), (item: DeviceControlItem) => {
+              GridItem() {
+                this.DeviceCard(item)
+              }
+            })
+            GridItem() {
+              Column() {
+                Text("+")
+                  .fontSize(48)
+                  .fontColor('#9CA3AF')
+                Text("添加设备")
+                  .fontSize(14)
+                  .fontColor('#9CA3AF')
+              }
+              .width('100%')
+              .height(160)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor('#F9FAFB')
+              .borderRadius(16)
+              .borderWidth(1)
+              .borderColor('#E5E7EB')
             }
-          })
-        }.lanes(1)
-      }else{
-        Text("还没有房间哦")
+          }
+          .columnsTemplate('1fr 1fr')
+          .columnsGap(16)
+          .rowsGap(16)
+          .width('100%')
+          .padding(16)
+        }
+        .width('100%')
+        .flexGrow(1)
+        .backgroundColor('#F3F4F6')
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
 
-
-    }.backgroundColor( '#e0efff')
-    .width("100%").height("100%");
-
+      if (this.is_show_lights) {
+        control_lights({ arr_farmland: this.arr_farmland, is_show: this.is_show_lights })
+      }
+      if (this.is_show_temperature_control_device) {
+        control_temperature({ arr_farmland: this.arr_farmland, is_show: this.is_show_temperature_control_device })
+      }
+      if (this.is_show_waterValve) {
+        control_waterValve({ arr_farmland: this.arr_farmland, is_show: this.is_show_waterValve });
+      }
+      if (this.is_show_robot) {
+        face_cam({ is_show: this.is_show_robot })
+      }
+      if (this.is_show_dan) {
+        control_fan({ arr_farmland: this.arr_farmland, is_show: this.is_show_dan })
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 
+  @Builder
+  DeviceCard(item: DeviceControlItem) {
+    Column({ space: 12 }) {
+      Image(item.icon)
+        .width(48)
+        .height(48)
+        .fillColor(item.color)
+        .margin({ top: 16 })
+      Text(item.title)
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#1F2937')
+      Text(item.desc)
+        .fontSize(12)
+        .fontColor('#6B7280')
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(160)
+    .justifyContent(FlexAlign.Start)
+    .padding({ left: 16, right: 16, bottom: 16 })
+    .backgroundColor(Color.White)
+    .borderRadius(16)
+    .shadow({
+      color: '#00000010',
+      radius: 8,
+      offsetX: 0,
+      offsetY: 2
+    })
+    .onClick(item.onClick)
+  }
+
+  // 获取设备控制列表
+  getDeviceList(): DeviceControlItem[] {
+    return [
+      {
+        title: "补光灯光控制",
+        desc: "调节棚内光照强度",
+        icon: $r("app.media.c_light2"),
+        color: '#F59E0B',
+        onClick: () => this.is_show_lights = true
+      },
+      {
+        title: "水阀控制",
+        desc: "控制灌溉水阀开关",
+        icon: $r("app.media.waterValve5"),
+        color: '#3B82F6',
+        onClick: () => this.is_show_waterValve = true
+      },
+      {
+        title: "门锁",
+        desc: "远程开关棚门",
+        icon: $r("app.media._door"),
+        color: '#10B981',
+        onClick: () => this.is_show_robot = true
+      },
+      {
+        title: "温控设备控制",
+        desc: "调节棚内温度",
+        icon: $r("app.media.ufo2"),
+        color: '#EF4444',
+        onClick: () => this.is_show_temperature_control_device = true
+      },
+      {
+        title: "风扇控制",
+        desc: "调节通风风速",
+        icon: $r("app.media._fan"),
+        color: '#8B5CF6',
+        onClick: () => this.is_show_dan = true
+      }
+    ]
+  }
+}
+
+interface DeviceControlItem {
+  title: string
+  desc: string
+  icon: Resource
+  color: string
+  onClick: () => void
 }
 @Component
-struct mySliber{
-  @State lighting:number = 0
-  @Prop _room:room
-  @State bulbColor: string = '#333333'
+struct control_lights{
+  @Link is_show:boolean
+  @Link arr_farmland:farmland[]
 
+  build() {
+    Stack() {
+      Column() {
+        Row() {
+          Button("<")
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .fontColor(Color.White)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .onClick(() => this.is_show = false)
+
+          Text("补光灯光控制")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+
+          Text("")
+            .width(44)
+        }
+        .width('100%')
+        .height(60)
+        .backgroundColor('#10B981')
+        .padding({ top: 10 })
+        if(this.arr_farmland.length != 0){
+          List({ space: 16 }) {
+            ForEach(this.arr_farmland,(item:farmland,index)=>{
+              ListItem() {
+                Column() {
+                  Text(item.name)
+                    .fontSize(18)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor('#1F2937')
+                    .width('100%')
+                    .textAlign(TextAlign.Start)
+                    .margin({ bottom: 12 })
+
+                  mySlider({
+                    _farmland:item,
+                  })
+                }
+                .width('100%')
+                .padding(20)
+                .backgroundColor(Color.White)
+                .borderRadius(16)
+                .shadow({
+                  color: '#00000010',
+                  radius: 8,
+                  offsetX: 0,
+                  offsetY: 4
+                })
+              }
+              .padding({ left: 16, right: 16 })
+            })
+          }
+          .width('100%')
+          .padding({ top: 16, bottom: 30 })
+          .flexGrow(1)
+        }else{
+          Column() {
+            Text("还没有农田哦")
+              .fontSize(16)
+              .fontColor('#6B7280')
+              .margin({ top: 60 })
+          }
+          .flexGrow(1)
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
+    }
+    .width('100%')
+    .height('100%')
+  }
+}
+@Component
+struct mySlider{
+  @State lighting:number = 0
+  @Prop _farmland:farmland
+  @State bulbColor: string = '#333333'
   aboutToAppear(): void {
     let max = 0
-    for (let f of this._room.furniture_s){
+    for (let f of this._farmland.device_s){
       if(f.lighting>max){
         max = f.lighting
       }
     }
     this.lighting = max
-    console.log("room max:"+this.lighting)
+    console.log("farmland max:"+this.lighting)
   }
   build() {
     Row(){
-      Image($r('app.media.light'))
+      Image($r('app.media.fill_light'))
         .height(25)
         .width(25)
         .fillColor(this.bulbColor);
@@ -894,7 +947,7 @@ struct mySliber{
       })
         .onChange(async (value) => {
           this.lighting = value;
-          for (let f of this._room.furniture_s) {
+          for (let f of this._farmland.device_s) {
             if (f.type_id > 999 && f.type_id < 2000) {
               await tcp.sendLED_chang(value, f.type_id);
               tcp.getData();
@@ -929,123 +982,149 @@ struct mySliber{
 }
 
 @Component
-struct control_curtain {
+struct control_waterValve {
   @Link is_show: boolean
-  @Link arr_room: room[]
-  @State curtain_List: Furniture[] = []
+  @Link arr_farmland: farmland[]
+  @State waterValve_List: Device[] = []
 
   aboutToAppear(): void {
-    for (let r of this.arr_room) {
+    for (let r of this.arr_farmland) {
       let _exist = false
-      let fan_ = new Furniture('', 0, 0)
-      for (let f of r.furniture_s) {
+      let fan_ = new Device('', 0, 0)
+      for (let f of r.device_s) {
         if (f.type_id > 3999 && f.type_id < 5000) {
           _exist = true
           fan_ = f
         }
       }
-      this.curtain_List.push(fan_)
+      this.waterValve_List.push(fan_)
     }
   }
 
   build() {
-    Column() {
-      Button("返回")
-        .onClick(() => this.is_show = false)
-        .padding(10)
-        .backgroundColor(Color.White)
-        .borderWidth(2)
-        .borderColor('#6d9cee')
-        .fontColor('#6d9cee')
-        .margin(10);
+    Stack() {
+      Column() {
+        Row() {
 
-      if (this.arr_room.length != 0) {
-        List() {
-          ForEach(this.arr_room, (item: room, index) => {
-            ListItem() {
-              Stack() {
-                // 背景图片（根据开关状态切换）
-                Image(this.curtain_List[index]?.switch === 1 ? $r('app.media.cur_open') : $r('app.media.cur_close'))
-                  .width('70%')
-                  .height('70%')
-                  .objectFit(ImageFit.Cover)
-                  .fillColor("#ff8f8f92")
+          Button("<")
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .fontColor(Color.White)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .onClick(() => this.is_show = false)
 
-                // 内容行
-                Column() {
-                  Text(item?.name)
-                    .fontSize(16)
-                    .fontColor('#333')
-                  Toggle({
-                    type: ToggleType.Switch,
-                    isOn: this.curtain_List[index]?.switch === 1
-                  })
-                    .onClick(async () => {
-                      // 创建新数组触发状态更新
-                      let newList = [...this.curtain_List];
-                      if (newList[index].switch === 1) {
-                        newList[index] = new Furniture(
-                          newList[index].name,
-                          0,
-                          newList[index].type_id
-                        );
-                        _IoTad.set_curtain_by_id("off");
-                      } else {
-                        newList[index] = new Furniture(
-                          newList[index].name,
-                          1,
-                          newList[index].type_id
-                        );
-                        _IoTad.set_curtain_by_id("on");
-                      }
-                      this.curtain_List = newList;
+          Text("水阀控制")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+
+          Text("")
+            .width(44)
+        }
+        .width('100%')
+        .height(60)
+        .backgroundColor('#10B981')
+        .padding({ top: 10 })
+
+        if (this.arr_farmland.length != 0) {
+          List({ space: 16 }) {
+            ForEach(this.arr_farmland, (item: farmland, index) => {
+              ListItem() {
+                Stack() {
+                  Image(this.waterValve_List[index]?.switch === 1 ? $r('app.media.cur_open') : $r('app.media.cur_close'))
+                    .width('70%')
+                    .height('70%')
+                    .objectFit(ImageFit.Cover)
+                    .fillColor("#ff8f8f92")
+
+                  Column() {
+                    Text(item?.name)
+                      .fontSize(16)
+                      .fontColor('#333')
+                    Toggle({
+                      type: ToggleType.Switch,
+                      isOn: this.waterValve_List[index]?.switch === 1
                     })
+                      .onClick(async () => {
+                        let newList = [...this.waterValve_List];
+                        if (newList[index].switch === 1) {
+                          newList[index] = new Device(
+                            newList[index].name,
+                            0,
+                            newList[index].type_id
+                          );
+                          _IoTad.set_waterValve_by_id("off");
+                        } else {
+                          newList[index] = new Device(
+                            newList[index].name,
+                            1,
+                            newList[index].type_id
+                          );
+                          _IoTad.set_waterValve_by_id("on");
+                        }
+                        this.waterValve_List = newList;
+                      })
+                  }
+                  .width('100%')
+                  .height('100%')
+                  .padding(20)
+                  .justifyContent(FlexAlign.SpaceBetween)
                 }
                 .width('100%')
-                .height('100%')
-                .padding(20)
-                .justifyContent(FlexAlign.SpaceBetween)
+                .height(200)
+                .backgroundColor(Color.White)
+                .borderRadius(16)
+                .shadow({
+                  radius: 8,
+                  offsetX: 0,
+                  offsetY: 4,
+                  color: "#00000010"
+                })
               }
-              .width(150)
-              .height(200)
-              .margin(20)
-              .borderRadius(15)
-              .backgroundColor(
-                index % 3 === 0? '#ffffe1f9' :
-                  index % 3 === 1? '#ffece6fa' :
-                    '#ffe0ebff'
-              )
-              .shadow({
-                radius: 5,
-                offsetX: 20,
-                offsetY: 20,
-                color: "#a8474545"
-              })
-            }
-          })
-        }.lanes(2)
-      } else {
-        Text("还没有房间哦")
+              .padding({ left: 16, right: 16 })
+            })
+          }
+          .lanes(2)
+          .width('100%')
+          .padding({ top: 16, bottom: 30 })
+          .flexGrow(1)
+        } else {
+          // 空状态
+          Column() {
+            Text("还没有农田哦")
+              .fontSize(16)
+              .fontColor('#6B7280')
+              .margin({ top: 60 })
+          }
+          .flexGrow(1)
+        }
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
     }
-    .backgroundColor('#e0efff')
-    .width("100%")
-    .height("100%");
+    .width('100%')
+    .height('100%')
   }
 }
+
 
 @Component
 struct control_fan{
   @Link is_show:boolean
-  @Link arr_room:room[]
-  @State fan_List:Furniture[] = []
+  @Link arr_farmland:farmland[]
+  @State fan_List:Device[] = []
   @State fan_ex_list:boolean[] = []
 
   aboutToAppear(): void {
-    for (let r of this.arr_room){
+    for (let r of this.arr_farmland){
       let _exist = false
-      let fan_ = new Furniture('',0,0)
-      for (let f of r.furniture_s){
+      let fan_ = new Device('',0,0)
+      for (let f of r.device_s){
         if(f.type_id>3999&&f.type_id<5000){
           _exist = true
           fan_ = f
@@ -1057,86 +1136,114 @@ struct control_fan{
       }else{
         this.fan_ex_list.push(false)
       }
-
     }
   }
 
   build() {
-    Column(){
-      Button("返回").onClick(()=>{this.is_show = false})
-        .onClick(() => this.is_show = false)
-        .padding(10)
-        .backgroundColor(Color.White)
-        .borderWidth(2)
-        .borderColor('#6d9cee')
-        .fontColor('#6d9cee')
-        .margin(10);
-      if(this.arr_room.length != 0){
-        List(){
-          ForEach(this.arr_room,(item:room,index)=>{
-            if(this.fan_ex_list[index]){
-              ListItem(){
-                Row(){
-                  Text(item.name)
-                  Toggle({ type: ToggleType.Switch, isOn:this.fan_List[index].switch?true:false})
-                    .onClick(async ()=>{
-                      if(this.fan_List[index].switch){
-                        this.fan_List[index] = new Furniture(this.fan_List[index].name,0,this.fan_List[index].type_id)
-                        _IoTad.set_fan_by_id("off")
-                      }else{
-                        this.fan_List[index] = new Furniture(this.fan_List[index].name,1,this.fan_List[index].type_id)
-                        _IoTad.set_fan_by_id("on")
-                      }
+    Stack() {
+      Column() {
+        Row() {
+          Button("<")
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .fontColor(Color.White)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .onClick(() => this.is_show = false)
 
-                    })
-                }.width(320).padding(20).borderRadius(15).margin(20).justifyContent(FlexAlign.SpaceAround)
-                .backgroundColor(
-                  index % 3 === 0? '#ffffe1f9' :
-                    index % 3 === 1? '#ffece6fa' :
-                      '#ffe0ebff'
-                )
-                .shadow({
-                  radius: 5,
-                  offsetX: 20,
-                  offsetY: 20,
-                  color: "#a8474545"
-                });
+          Text("风扇控制")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+
+          Text("")
+            .width(44)
+        }
+        .width('100%')
+        .height(60)
+        .backgroundColor('#10B981')
+        .padding({ top: 10 })
+        if(this.arr_farmland.length != 0){
+          List({ space: 16 }) {
+            ForEach(this.arr_farmland,(item:farmland,index)=>{
+              if(this.fan_ex_list[index]){
+                ListItem(){
+                  Row(){
+                    Text(item.name)
+                      .fontSize(18)
+                      .fontWeight(FontWeight.Medium)
+                    Toggle({ type: ToggleType.Switch, isOn:this.fan_List[index].switch?true:false})
+                      .onClick(async ()=>{
+                        if(this.fan_List[index].switch){
+                          this.fan_List[index] = new Device(this.fan_List[index].name,0,this.fan_List[index].type_id)
+                          _IoTad.set_fan_by_id("off")
+                        }else{
+                          this.fan_List[index] = new Device(this.fan_List[index].name,1,this.fan_List[index].type_id)
+                          _IoTad.set_fan_by_id("on")
+                        }
+                      })
+                  }
+                  .width('100%')
+                  .padding(20)
+                  .justifyContent(FlexAlign.SpaceBetween)
+                  .backgroundColor(Color.White)
+                  .borderRadius(16)
+                  .shadow({
+                    radius: 8,
+                    offsetX: 0,
+                    offsetY: 4,
+                    color: "#00000010"
+                  })
+                }
+                .padding({ left: 16, right: 16 })
               }
-            }
-
-          })
-        }.lanes(1)
-      }else{
-        Text("还没有房间哦")
+            })
+          }
+          .width('100%')
+          .padding({ top: 16, bottom: 30 })
+          .flexGrow(1)
+        }else{
+          Column() {
+            Text("还没有农田哦")
+              .fontSize(16)
+              .fontColor('#6B7280')
+              .margin({ top: 60 })
+          }
+          .flexGrow(1)
+        }
       }
-
-
-    }.backgroundColor( '#e0efff')
-    .width("100%").height("100%");
-
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
+    }
+    .width('100%')
+    .height('100%')
   }
 }
 
 @Component
 struct show_f{
-  @Link arr:room[]
+  @Link arr:farmland[]
   @State ex_condition:boolean = false
-  @State open_List:Furniture[] = []
+  @State open_List:Device[] = []
   @State is_show_edit_List:boolean[] = []
   @State is_edit_h:string[] = []
-  @Link f:Furniture
+  @Link f:Device
 
 
   async aboutToAppear(){
     console.log("f:::11")
     /*setTimeout(()=>{
-      this.arr.push(new room("",[new Furniture('',1,1002)]))
+      this.arr.push(new farmland("",[new Device('',1,1002)]))
     },1000)*/
     setInterval(()=>{
       this.open_List = []
       console.log("f:::11"+JSON.stringify(this.arr))
       for(let r of this.arr){
-        for (let f of r.furniture_s){
+        for (let f of r.device_s){
           console.log("f:::11"+JSON.stringify(f))
           if(f.switch == 1&&f.type_id>2999){
             this.ex_condition = true
@@ -1153,19 +1260,19 @@ struct show_f{
 
     if(this.ex_condition){
       List(){
-        ForEach(this.open_List,(item:Furniture,value)=>{
+        ForEach(this.open_List,(item:Device,value)=>{
           ListItem(){
             Row(){
               Column(){
                 if(item.type_id<999){
 
-                }else if(item.type_id<2000){//灯
+                }else if(item.type_id<2000){//补光补光灯
 
-                }else if(item.type_id<3000){//窗帘
-                  Image($r("app.media._curtain"))
+                }else if(item.type_id<3000){//水阀
+                  Image($r("app.media._water_valve"))
                     .fillColor(this.select_color(value))
-                }else if(item.type_id<4000){//空调
-                  Image($r("app.media._air_condition"))
+                }else if(item.type_id<4000){//温控设备
+                  Image($r("app.media._temperature_control_device"))
                     .fillColor(this.select_color(value))
                 }else if(item.type_id<5000){//风扇
                   Image($r("app.media._fan"))
@@ -1367,9 +1474,9 @@ export struct my_DeepSeek{
 }
 
 @Component
-export struct my_airCon_edit{
+export struct my_temCon_edit{
 
-  @Link item:Furniture
+  @Link item:Device
   @Link is_show:boolean
   @State selectedMode: 'auto' | 'heat' | 'cool' | 'dry' = 'auto';
   @State tempSetting: number = 26;
@@ -1417,7 +1524,7 @@ export struct my_airCon_edit{
               .onClick(() => {
                 this.selectedMode = mode;
                 this.acColor = this.calculateAcColor();
-                _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
+                _IoTad.set_temperature_control_device_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
               })
               .padding(10)
               .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : '#e0e0e0')
@@ -1440,7 +1547,7 @@ export struct my_airCon_edit{
                 if (this.tempSetting > 16) {
                   this.tempSetting -= 1;
                   this.is_chang = !this.is_chang;
-                  _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.item.mode)
+                  _IoTad.set_temperature_control_device_by_id(this.tempSetting,"on",this.item.mode)
                 }
               })
               .padding(10)
@@ -1454,7 +1561,7 @@ export struct my_airCon_edit{
                 if (this.tempSetting < 30) {
                   this.tempSetting += 1;
                   this.is_chang = !this.is_chang;
-                  _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.item.mode)
+                  _IoTad.set_temperature_control_device_by_id(this.tempSetting,"on",this.item.mode)
                 }
               })
               .padding(10)
@@ -1499,19 +1606,21 @@ export struct my_airCon_edit{
 
 
 }
+
 @Component
-export struct control_aircon {
+export struct control_temperature {
   @Link is_show: boolean;
-  @Link arr_room: room[];
+  @Link arr_farmland: farmland[];
   @State selectedMode: 'auto' | 'heat' | 'cool' | 'dry' = 'auto';
-  @State Color_B:string[] = ['#42b983','#ff6b6b','#4fc0d0','#ffaea68e',]
+  @State Color_B: string[] = ['#42b983', '#ff6b6b', '#4fc0d0', '#ffaea68e',]
   @State tempSetting: number = 26;
   @State acColor: string = '#42b983';
   @State is_chang: boolean = true;
-  @State is_exist_list:boolean[] = []
-  @State is_open_list:boolean[] = []
-  @State is_exist:boolean = false
-  @State is_open:boolean = false
+  @State is_exist_list: boolean[] = []
+  @State is_open_list: boolean[] = []
+  @State is_exist: boolean = false
+  @State is_open: boolean = false
+
   private calculateAcColor(): string {
     switch (this.selectedMode) {
       case 'heat': return '#ff6b6b';
@@ -1520,206 +1629,287 @@ export struct control_aircon {
       default: return '#42b983';
     }
   }
+
   aboutToAppear(): void {
-    for (let r of this.arr_room){
+    for (let r of this.arr_farmland) {
       let _is_e = false
       let _is_open = false
-      for(let f of r.furniture_s){
-        if(f.type_id>=3000&&f.type_id<4000){
+      for (let f of r.device_s) {
+        if (f.type_id >= 3000 && f.type_id < 4000) {
           this.tempSetting = f.temp
-          if(f.mode == "zd"){
+          if (f.mode == "zd") {
             this.selectedMode = "auto"
-          }else if(f.mode == 'zr'){
+          } else if (f.mode == 'zr') {
             this.selectedMode = "heat"
-          }else if(f.mode == 'zl'){
+          } else if (f.mode == 'zl') {
             this.selectedMode = "cool"
-          }else if(f.mode == 'cs'){
+          } else if (f.mode == 'cs') {
             this.selectedMode = "dry"
-          }else{
+          } else {
             this.selectedMode = "auto"
           }
           this.is_exist = true
           _is_e = true
-          if(f.switch == 1){
+          if (f.switch == 1) {
             this.is_open = true
             _is_open = true
           }
         }
       }
-      if(_is_e){
+      if (_is_e) {
         this.is_exist_list.push(true)
-      }else {this.is_exist_list.push(false)}
-      if(_is_open){
+      } else {
+        this.is_exist_list.push(false)
+      }
+      if (_is_open) {
         this.is_open_list.push(true)
-      }else {this.is_open_list.push(false)}
+      } else {
+        this.is_open_list.push(false)
+      }
     }
   }
 
   build() {
-    if(this.is_exist){
-      Column() {
-        Button('返回')
-          .onClick(() => this.is_show = false)
-          .padding(10)
-          .backgroundColor(Color.White)
-          .borderWidth(2)
-          .borderColor('#6d9cee')
-          .fontColor('#6d9cee')
-          .margin(5);
-
-
-        if(this.is_open){
+    Stack() {
+      if (this.is_exist) {
+        Column() {
           Row() {
-            ForEach(['auto', 'heat', 'cool', 'dry'] as ['auto', 'heat', 'cool', 'dry'], (mode: 'auto' | 'heat' | 'cool' | 'dry',value) => {
-              Button(mode.toUpperCase())
-                .onClick(() => {
-                  this.selectedMode = mode;
-                  this.acColor = this.calculateAcColor();
-                  _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
-                })
-                .padding(10)
-                .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : '#e0e0e0')
-                .fontColor(this.selectedMode === mode ? '#e0e0e0':'#6d9cee')
-                .borderWidth(2)
-                .borderColor(this.selectedMode === mode ?'#e0e0e0':'#6d9cee')
-                .margin(5);
-            });
+            Text("<")
+              .fontSize(22)
+              .fontColor(Color.White)
+              .padding(10)
+              .onClick(() => this.is_show = false)
+
+            Text("温控设备控制")
+              .fontSize(20)
+              .fontColor(Color.White)
+              .fontWeight(FontWeight.Bold)
+              .flexGrow(1)
+              .textAlign(TextAlign.Center)
+
+            Text("")
+              .width(44)
           }
-          .margin(10);
-
-          Column() {
-            Text(`当前温度: ${this.tempSetting.toFixed(1)}°C`)
-              .fontSize(24)
-              .margin(10);
-
-            Row() {
-              Button('-')
-                .onClick(async () => {
-                  if (this.tempSetting > 16) {
-                    this.tempSetting -= 1;
-                    this.is_chang = !this.is_chang;
-                    await _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
-                  }
-                })
-                .padding(10)
-                .backgroundColor('#e0e0e0')
-                .margin(5);
-
-              this.CustomCircularProgress(); // 直接调用，无需传参
-
-              Button('+')
-                .onClick(async () => {
-                  if (this.tempSetting < 30) {
-                    this.tempSetting += 1;
-                    this.is_chang = !this.is_chang;
-                    await _IoTad.set_air_condition_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
-                  }
-                })
-                .padding(10)
-                .backgroundColor('#e0e0e0')
-                .margin(5);
-            }
-            .margin(10);
-          }
-          .height("30%")
-          .width("80%")
-          .backgroundColor('#f8f8f8')
-          .borderRadius(15)
-          .padding(20);
-
-        }
-        List() {
-          ForEach(this.arr_room, (item: room,value) => {
-            if(this.is_exist_list[value]){
-              ListItem() {
+          .width('100%')
+          .height(80)
+          .backgroundColor('#10B981')
+          .padding({ top: 20 })
+          if (this.is_open) {
+            Scroll() {
+              Column({ space: 16 }) {
                 Row() {
-                  Text(item.name)
-                    .fontSize(18)
-                    .margin(10)
-                    .width("30%");
+                  ForEach(['auto', 'heat', 'cool', 'dry'] as ['auto', 'heat', 'cool', 'dry'], (mode: 'auto' | 'heat' | 'cool' | 'dry', value) => {
+                    Button(mode.toUpperCase())
+                      .onClick(() => {
+                        this.selectedMode = mode;
+                        this.acColor = this.calculateAcColor();
+                        _IoTad.set_temperature_control_device_by_id(this.tempSetting, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                      })
+                      .padding(10)
+                      .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : '#ffffff')
+                      .fontColor(this.selectedMode === mode ? '#ffffff' : '#374151')
+                      .borderRadius(8)
+                      .margin(5);
+                  });
+                }
+                .margin({ top: 16 })
+                .justifyContent(FlexAlign.Center)
+
+                Column() {
+                  Text(`当前温度: ${this.tempSetting.toFixed(1)}°C`)
+                    .fontSize(24)
+                    .fontWeight(FontWeight.Medium)
+                    .margin(10);
 
                   Row() {
-                    Image($r(`app.media.ac_${this.selectedMode}`))
-                      .height(40)
-                      .width(40)
-                      .fillColor(this.calculateAcColor());
-
-                    Text(`${this.tempSetting.toFixed(1)}°C`)
-                      .fontSize(20)
-                      .margin(10);
-
-                    Toggle({ type: ToggleType.Switch, isOn:this.is_open_list[value]})
-                      .onClick(async ()=>{
-                        let _is_exist_open:boolean = false
-                        if(this.is_open_list[value]){
-                          this.is_open_list[value] = false
-                          await _IoTad.set_air_condition_by_id(25,"off",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
-                          for(let i of this.is_open_list){
-                            if(i){
-                              _is_exist_open =true
-                            }
-                          }
-                          if(_is_exist_open){
-                            this.is_open = true
-                          }else {
-                            this.is_open = false
-                          }
-                        }else{
-                          this.is_open_list[value] = true
-                          await _IoTad.set_air_condition_by_id(25,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
-                          for(let i of this.is_open_list){
-                            if(i){
-                              _is_exist_open =true
-                            }
-                          }
-                          if(_is_exist_open){
-                            this.is_open = true
-                          }else {
-                            this.is_open = false
-                          }
+                    Button('-')
+                      .onClick(async () => {
+                        if (this.tempSetting > 16) {
+                          this.tempSetting -= 1;
+                          this.is_chang = !this.is_chang;
+                          await _IoTad.set_temperature_control_device_by_id(this.tempSetting, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
                         }
                       })
-                      .margin(10)
+                      .padding(10)
+                      .backgroundColor('#ffffff')
+                      .borderRadius(8)
+                      .margin(5);
 
+                    this.CustomCircularProgress();
 
+                    Button('+')
+                      .onClick(async () => {
+                        if (this.tempSetting < 30) {
+                          this.tempSetting += 1;
+                          this.is_chang = !this.is_chang;
+                          await _IoTad.set_temperature_control_device_by_id(this.tempSetting, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                        }
+                      })
+                      .padding(10)
+                      .backgroundColor('#ffffff')
+                      .borderRadius(8)
+                      .margin(5);
+                  }
+                  .margin(10);
+                }
+                .width("90%")
+                .backgroundColor(Color.White)
+                .borderRadius(16)
+                .padding(20)
+                .shadow({
+                  color: '#00000010',
+                  radius: 8,
+                  offsetX: 0,
+                  offsetY: 4
+                })
+
+                List({ space: 12 }) {
+                  ForEach(this.arr_farmland, (item: farmland, value) => {
+                    if (this.is_exist_list[value]) {
+                      ListItem() {
+                        Row() {
+                          Text(item.name)
+                            .fontSize(18)
+                            .fontWeight(FontWeight.Medium)
+
+                          Row() {
+                            Image($r(`app.media.ac_${this.selectedMode}`))
+                              .height(40)
+                              .width(40)
+                              .fillColor(this.calculateAcColor());
+
+                            Text(`${this.tempSetting.toFixed(1)}°C`)
+                              .fontSize(20)
+                              .margin({ left: 8, right: 8 });
+
+                            Toggle({
+                              type: ToggleType.Switch,
+                              isOn: this.is_open_list[value]
+                            })
+                              .onClick(async () => {
+                                let _is_exist_open: boolean = false
+                                if (this.is_open_list[value]) {
+                                  this.is_open_list[value] = false
+                                  await _IoTad.set_temperature_control_device_by_id(25, "off", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                                } else {
+                                  this.is_open_list[value] = true
+                                  await _IoTad.set_temperature_control_device_by_id(25, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                                }
+                                this.is_open = this.is_open_list.some(i => i)
+                              })
+                          }
+                          .flexGrow(1)
+                          .justifyContent(FlexAlign.End)
+                        }
+                        .width('100%')
+                        .padding(20)
+                        .backgroundColor(Color.White)
+                        .borderRadius(16)
+                        .shadow({
+                          color: '#00000010',
+                          radius: 8,
+                          offsetX: 0,
+                          offsetY: 4
+                        })
+                      }
+                    }
+                  });
+                }
+                .width('100%')
+                .padding(16)
+              }
+            }
+            .flexGrow(1)
+          } else {
+            List({ space: 12 }) {
+              ForEach(this.arr_farmland, (item: farmland, value) => {
+                if (this.is_exist_list[value]) {
+                  ListItem() {
+                    Row() {
+                      Text(item.name)
+                        .fontSize(18)
+                        .fontWeight(FontWeight.Medium)
+
+                      Row() {
+                        Image($r(`app.media.ac_${this.selectedMode}`))
+                          .height(40)
+                          .width(40)
+                          .fillColor(this.calculateAcColor());
+
+                        Text(`${this.tempSetting.toFixed(1)}°C`)
+                          .fontSize(20)
+                          .margin({ left: 8, right: 8 });
+
+                        Toggle({
+                          type: ToggleType.Switch,
+                          isOn: this.is_open_list[value]
+                        })
+                          .onClick(async () => {
+                            let _is_exist_open: boolean = false
+                            if (this.is_open_list[value]) {
+                              this.is_open_list[value] = false
+                              await _IoTad.set_temperature_control_device_by_id(25, "off", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                            } else {
+                              this.is_open_list[value] = true
+                              await _IoTad.set_temperature_control_device_by_id(25, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
+                            }
+                            this.is_open = this.is_open_list.some(i => i)
+                          })
+                      }
+                      .flexGrow(1)
+                      .justifyContent(FlexAlign.End)
+                    }
+                    .width('100%')
+                    .padding(20)
+                    .backgroundColor(Color.White)
+                    .borderRadius(16)
+                    .shadow({
+                      color: '#00000010',
+                      radius: 8,
+                      offsetX: 0,
+                      offsetY: 4
+                    })
                   }
                 }
-                .padding(20)
-                .backgroundColor('#ffffff')
-                .borderRadius(10)
-                .shadow({ radius: 3, offsetX: 2, offsetY: 2, color: '#999999' })
-                .height("15%")
-                .width("100%");
-              }
-              ListItem().height(10)
+              });
             }
-          });
+            .width('100%')
+            .padding(16)
+            .flexGrow(1)
+          }
         }
-        .margin(20);
-      }
-      .backgroundColor('#e0efff')
-      .width('100%')
-      .height('100%');
-    }else {
-      Column(){
-        Text("还没有空调呢")
-        Button("前往录入")
-          .padding(10)
-          .backgroundColor(Color.White)
-          .borderWidth(2)
-          .borderColor('#6d9cee')
-          .fontColor('#6d9cee')
-          .onClick(()=>this.is_show = false)
-      }
-    }
-    }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#F3F4F6')
+      } else {
+        // 空状态
+        Column({ space: 20 }) {
+          Text("还没有温控设备呢")
+            .fontSize(16)
+            .fontColor('#6B7280')
 
+          Button("前往录入")
+            .width(160)
+            .height(44)
+            .backgroundColor('#10B981')
+            .fontColor(Color.White)
+            .borderRadius(12)
+            .onClick(() => this.is_show = false)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#F3F4F6')
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
 
   @Builder
   CustomCircularProgress() {
-    // 直接使用组件内的 @State tempSetting
     Progress({
-      value:this.tempSetting - 16,
+      value: this.tempSetting - 16,
       total: 14,
       style: ProgressStyle.Ring
     })
@@ -1731,8 +1921,208 @@ export struct control_aircon {
           gapRadius: 0
         }
       } as RingStyleOptions)
-      .color(`rgb(255, ${255 -  Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))}, ${255 -  Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))})`)
+      .color(`rgb(255, ${255 - Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))}, ${255 - Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))})`)
       .size({ width: 80, height: 80 })
+  }
+}
+
+@Component
+export struct AboutProject {
+  onBack?: () => void;
+
+  build() {
+    Stack() {
+      Column() {
+        Row() {
+          Text("<")
+            .fontSize(22)
+            .fontColor(Color.White)
+            .padding(10)
+            .onClick(() => {
+              if (this.onBack) {
+                this.onBack()
+              }
+            })
+
+          Text("关于智慧农田")
+            .fontSize(20)
+            .fontColor(Color.White)
+            .fontWeight(FontWeight.Bold)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+
+          Text("")
+            .width(44)
+        }
+        .width('100%')
+        .height(60)
+        .backgroundColor('#10B981')
+        .padding({ top: 10 })
+        Column({ space: 15 }) {
+          Text("系统介绍")
+            .fontSize(28)
+            .fontWeight(FontWeight.Bold)
+            .fontColor("#10B981")
+            .margin({ top: 40 })
+
+          Text("本系统基于鸿蒙ArkTS开发\n实现环境监测、智能灌溉\n以及设备控制、场景联动\n适用于大棚/大田现代化农业管理")
+            .fontSize(16)
+            .fontColor("#374151")
+            .textAlign(TextAlign.Center)
+            .width("90%")
+            .margin({ top: 20 })
+        }
+        .width("100%")
+        .alignItems(HorizontalAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
+    }
+    .width("100%")
+    .height("100%")
+  }
+}
+@Component
+export struct AccountSetting {
+  @State username: string = '';
+  @State oldPwd: string = '';
+  @State newPwd: string = '';
+  onBack?: () => void;
+  private userPreferences: preferences.Preferences | null = null;
+
+  async aboutToAppear() {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      this.userPreferences = await preferences.getPreferences(context, 'userData');
+      const lastLogin = await this.userPreferences.get('last_login', '');
+      this.username = lastLogin as string;
+    } catch (e) {
+      console.error("初始化存储失败:", e);
+    }
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        // 顶部标题栏
+        Row() {
+          Text("<")
+            .fontSize(22)
+            .fontColor(Color.White)
+            .padding({ left: 12, right: 12 })
+            .onClick(() => {
+              if (this.onBack) {
+                this.onBack()
+              }
+            })
+
+          Text("账号设置")
+            .fontSize(20)
+            .fontColor(Color.White)
+            .fontWeight(FontWeight.Bold)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .height(50)
+        .backgroundColor('#10B981')
+        .alignItems(VerticalAlign.Center)
+        Column({ space: 15 }) {
+          TextInput({ placeholder: "当前用户", text: this.username })
+            .width("90%")
+            .height(50)
+            .backgroundColor(Color.White)
+            .borderRadius(10)
+            .enabled(false)
+
+          TextInput({ placeholder: "请输入旧密码" })
+            .type(InputType.Password)
+            .width("90%")
+            .height(50)
+            .backgroundColor(Color.White)
+            .borderRadius(10)
+            .onChange(v => this.oldPwd = v);
+
+          TextInput({ placeholder: "请输入新密码" })
+            .type(InputType.Password)
+            .width("90%")
+            .height(50)
+            .backgroundColor(Color.White)
+            .borderRadius(10)
+            .onChange(v => this.newPwd = v);
+
+          Button("保存修改")
+            .width("90%")
+            .height(50)
+            .backgroundColor('#10B981')
+            .backgroundImageSize(ImageSize.Cover)
+            .fontColor(Color.White)
+            .borderRadius(10)
+            .onClick(async () => {
+              if (!this.oldPwd || !this.newPwd) {
+                console.log("请填写完整信息");
+                return;
+              }
+              await this.saveNewPassword();
+            });
+
+
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .margin({ top: 20 })
+
+
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F3F4F6')
+      .justifyContent(FlexAlign.Start)
+    }
+    .width("100%")
+    .height("100%")
+  }
+  private async saveNewPassword() {
+    if (!this.userPreferences) {
+      console.error("存储对象未初始化");
+      return;
+    }
+
+    try {
+      const oldPwdEncrypted = await this.encryptPassword(this.oldPwd);
+      const realPwd = await this.userPreferences.get(`user_${this.username}`, '') as string;
+
+      if (oldPwdEncrypted !== realPwd) {
+        console.log("旧密码错误");
+        return;
+      }
+      const newPwdEncrypted = await this.encryptPassword(this.newPwd);
+      await this.userPreferences.put(`user_${this.username}`, newPwdEncrypted);
+      await this.userPreferences.flush();
+
+      console.log("密码修改成功");
+      router.back();
+    } catch (e) {
+      console.error("修改密码失败:", e);
+    }
+  }
+
+  private async encryptPassword(plainText: string): Promise<string> {
+    try {
+      const md = cryptoFramework.createMd('SHA256');
+      const input: cryptoFramework.DataBlob = {
+        data: new util.TextEncoder().encode(plainText)
+      };
+      await md.update(input);
+      const digest = await md.digest();
+      return Array.from(new Uint8Array(digest.data))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch (e) {
+      console.error("密码加密失败:", e);
+      return "";
+    }
   }
 }
 // 类型声明
@@ -1740,15 +2130,15 @@ declare interface SliderStyle {
   readonly OutSet: SliderStyle;
 }
 
-function set_furniture(item:Furniture,command_on_off_number:string){
+function set_device(item:Device,command_on_off_number:string){
 
   if(item.type_id<999){
 
-  }else if(item.type_id<2000){//灯
+  }else if(item.type_id<2000){//补光补光灯
 
-  }else if(item.type_id<3000){//窗帘
-    _IoTad.set_curtain_by_id(command_on_off_number)
-  }else if(item.type_id<4000){//空调
+  }else if(item.type_id<3000){//水阀
+    _IoTad.set_waterValve_by_id(command_on_off_number)
+  }else if(item.type_id<4000){//温控设备
 
   }else if(item.type_id<5000){//风扇
     _IoTad.set_fan_by_id(command_on_off_number)

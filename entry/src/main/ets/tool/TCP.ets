@@ -117,7 +117,7 @@ export class _Tcp{
     }
 
   }
-  async sendAir_condition_chang(temp:number,id:number){
+  async sendtemperature_control_device_chang(temp:number,id:number){
     let order :socket.TCPSendOptions= {data:`{"action":"set_temp","ID":${id},"temp":`+temp+`}`}
     try{
       tcp.send(order)
@@ -128,8 +128,8 @@ export class _Tcp{
     }
 
   }
-  async sendAir_condition_dry(id:number){
-    let order :socket.TCPSendOptions= {data:`{"action":"set_air_condition_on","ID":${id}}`}
+  async sendtemperature_control_device_dry(id:number){
+    let order :socket.TCPSendOptions= {data:`{"action":"set_temperature_control_device_on","ID":${id}}`}
     try{
       tcp.send(order)
       console.log(`TCP ==Send ${JSON.stringify(order)} >: ${JSON.stringify(this.mixerAddr)}`)

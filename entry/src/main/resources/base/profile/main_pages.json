@@ -5,7 +5,7 @@
     "pages/Register",
     "pages/Open",
     "pages/try",
-    "pages/get_furniture",
+    "pages/get_device",
     "pages/scan_devices",
     "pages/Search_devices",
     "pages/test_Page"

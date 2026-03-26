@@ -59,20 +59,20 @@ interface _body1_push_brightness{
 interface _paras{ brightness:number }
 
 
-interface _body3_push_curtain{
+interface _body3_push_waterValve{
   service_id:string
   command_name:string
   paras:_paras3
 }
-interface _paras3{ curtain:string }
+interface _paras3{ waterValve:string }
 
-interface _body4_push_air_condition{
+interface _body4_push_temperature_control_device{
   service_id:string
   command_name:string
   paras:_paras5
 }
 interface _paras5{
-  airconditioner:number,
+  temControlDevice:number,
   mode:string,
   state:string
 }
@@ -223,14 +223,14 @@ export class IoTda{
         },
         extraData: JSON.stringify(body),
       });
-      DATA_new = "{\"temperature\":20,\"humidity\":40,\"smoke\":88,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
+      DATA_new = "{\"temperature\":20,\"humidity\":40,\"co2\":88,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
       console.log("Message sent::"+response.result)
       if (response.responseCode === 200) {
         console.log('Message sent successfully:', response.result.toString());
         let regex = /"response":(.*?)}}}/
         let regex1 = /"data":(.*?)}/
 
-        //{"result_code":0,"data":{"temperature":16,"humidity":0,"smoke":0,"motion_state":1,"door_state":0,"brightness":500,"1001":1,"1102":1,"2001":0,"3001_2":0,"4001":0,"3001_1":0,"3001_3":0}}
+        //{"result_code":0,"data":{"temperature":16,"humidity":0,"co2":0,"motion_state":1,"door_state":0,"brightness":500,"1001":1,"1102":1,"2001":0,"3001_2":0,"4001":0,"3001_1":0,"3001_3":0}}
         try {
           let _time = systemDateTime.getTime(true)
           console.log("Time::::"+_time)
@@ -244,9 +244,9 @@ export class IoTda{
         console.log("data:::1"+response.result.toString().match(regex1)?.toString()+"}")
         DATA_new ="{" + DATA_new.match(regex1)?.toString().split("},{")[1]+"}"
         console.log("data:::2"+DATA_new)
-        DATA_new = "{\"temperature\":23,\"humidity\":80,\"smoke\":26,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
+        DATA_new = "{\"temperature\":23,\"humidity\":80,\"co2\":26,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
 
-        return "//{\"result_code\":0,\"data\":{\"temperature\":16,\"humidity\":0,\"smoke\":0,\"motion_state\":1,\"door_state\":0,\"brightness\":500,\"1001\":1,\"1102\":1,\"2001\":0,\"3001_2\":0,\"4001\":0,\"3001_1\":0,\"3001_3\":0}}"
+        return "//{\"result_code\":0,\"data\":{\"temperature\":16,\"humidity\":0,\"co2\":0,\"motion_state\":1,\"door_state\":0,\"brightness\":500,\"1001\":1,\"1102\":1,\"2001\":0,\"3001_2\":0,\"4001\":0,\"3001_1\":0,\"3001_3\":0}}"
         return response.result.toString().match(regex)?.toString().split(",")[1]+"}"
 
       } else {
@@ -305,16 +305,16 @@ export class IoTda{
 
   }
 
-  async set_curtain_by_id(commind_on_or_off:string,id?:number){
+  async set_waterValve_by_id(commind_on_or_off:string,id?:number){
 
     const httpRequest = http.createHttp();
     const url = `https://${IOTDA_ENDPOINT}/v5/iot/${PROJECT_ID}/devices/${this.DEVICE_ID}/commands`;
-    const body :_body3_push_curtain = {
+    const body :_body3_push_waterValve = {
       service_id: "device_ctrl", // 设备模型中的服务 ID
-      command_name: "set_curtain", // 命令名称
+      command_name: "set_waterValve", // 命令名称
       paras: {
         // 命令参数
-        curtain:commind_on_or_off
+        waterValve:commind_on_or_off
       },
     };
 
@@ -346,16 +346,16 @@ export class IoTda{
 
   }
 
-  async set_air_condition_by_id(commind:number,state:string,mode:string,id?:number){
+  async set_temperature_control_device_by_id(commind:number,state:string,mode:string,id?:number){
 
     const httpRequest = http.createHttp();
     const url = `https://${IOTDA_ENDPOINT}/v5/iot/${PROJECT_ID}/devices/${this.DEVICE_ID}/commands`;
-    const body :_body4_push_air_condition = {
+    const body :_body4_push_temperature_control_device = {
       service_id: "device_ctrl", // 设备模型中的服务 ID
-      command_name: "set_airconditioner", // 命令名称
+      command_name: "set_temControlDevice", // 命令名称
       paras: {
         // 命令参数
-        airconditioner:commind,
+        temControlDevice:commind,
         mode:mode,
         state:state
       },

@@ -1,14 +1,14 @@
 import relationalStore from '@ohos.data.relationalStore';
 
-import { air_condition, Furniture, room } from '../tool/classes';
+import { temperature_control_device, Device, farmland } from '../tool/classes';
 
 
 // 定义数据库操作类
-export class RoomDatabase {
+export class FarmlandDatabase {
   private context: Context; // 这里假设你有合适的 Context 对象
   private rdbStore: relationalStore.RdbStore | null = null;
-  private readonly DB_NAME = 'room.db';
-  private readonly TABLE_NAME = 'Room';
+  private readonly DB_NAME = 'farmland.db';
+  private readonly TABLE_NAME = 'Farmland';
 
 
   constructor(context: Context) {
@@ -21,13 +21,13 @@ export class RoomDatabase {
 
     try {
       this.rdbStore = await relationalStore.getRdbStore(globalThis.getContext(), {
-        name: 'room_store.db',
+        name: 'farmland_store.db',
         securityLevel: relationalStore.SecurityLevel.S1
       });
-      // 创建 Furniture 表
-      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Furniture (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, switch INTEGER,roomId INTEGER,type_id INTEGER UNIQUE)');
-      // 创建 Room 表
-      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Room (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)');
+      // 创建 Device 表
+      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Device (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, switch INTEGER,farmlandId INTEGER,type_id INTEGER UNIQUE)');
+      // 创建 Farmland 表
+      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Farmland (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)');
       console.log('Database initialized and table created.');
     } catch (err) {
       console.error(`Failed to initialize database: ${err.message}`);
@@ -35,136 +35,136 @@ export class RoomDatabase {
   }
 
   // 插入书籍数据
-  async insertRoom(room: room) {
+  async insertFarmland(farmland: farmland) {
     try {
-      const roomId = await this.rdbStore?.insert(this.TABLE_NAME, {
-        'name': room.name
+      const farmlandId = await this.rdbStore?.insert(this.TABLE_NAME, {
+        'name': farmland.name
       });
 
-      for (const furniture of room.furniture_s) {
-        const furnitureId = await this.rdbStore?.insert('Furniture', {
-          'name': furniture.name,
-          'switch': furniture.switch,
-          'roomId': roomId,
-          'type_id': furniture.type_id
+      for (const device of farmland.device_s) {
+        const deviceId = await this.rdbStore?.insert('Device', {
+          'name': device.name,
+          'switch': device.switch,
+          'farmlandId': farmlandId,
+          'type_id': device.type_id
         })
       }
 
       return 1
     } catch (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
-        console.error(`Failed to insert room: Name ${room.name} already exists.`);
+        console.error(`Failed to insert farmland: Name ${farmland.name} already exists.`);
         return -1
       } else {
-        console.error(`Failed to insert room: ${err.message}`);
+        console.error(`Failed to insert farmland: ${err.message}`);
         return -1
       }
     }
   }
 
-  async insertFuByRoomId(roomId: number, f_name: string, type_id: number) {
+  async insertFuByFarmlandId(farmlandId: number, f_name: string, type_id: number) {
     try {
-      const furnitureId = await this.rdbStore?.insert('Furniture', {
-        'name': f_name + ':' + roomId,
+      const deviceId = await this.rdbStore?.insert('Device', {
+        'name': f_name + ':' + farmlandId,
         'switch': 0,
-        'roomId': roomId,
+        'farmlandId': farmlandId,
         'type_id': type_id
 
       });
 
-      console.log('Room inserted successfully.');
+      console.log('Farmland inserted successfully.');
       return 1
     } catch (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
-        console.error(`Failed to insert roomsfurniture: Name ${f_name} already exists.`);
+        console.error(`Failed to insert farmlandsdevice: Name ${f_name} already exists.`);
         return -1
       } else {
-        console.error(`Failed to insert furniture: ${err.message}`);
+        console.error(`Failed to insert device: ${err.message}`);
         return -1
       }
     }
   }
 
-  // 查询所有书籍数据
-  async getAllRooms() {
+  // 查询所有农田数据
+  async getAllFarmlands() {
 
-    const rooms: room[] = [];
-    const furnitureList: Furniture[] = [];
-    const predicates_room = new relationalStore.RdbPredicates(this.TABLE_NAME);
+    const farmlands: farmland[] = [];
+    const deviceList: Device[] = [];
+    const predicates_farmland = new relationalStore.RdbPredicates(this.TABLE_NAME);
 
     try {
-      const resultSet = await this.rdbStore?.query(predicates_room);
-      console.log('Rooms queried successfully.');
+      const resultSet = await this.rdbStore?.query(predicates_farmland);
+      console.log('Farmlands queried successfully.');
       if (resultSet?.rowCount == 0) {
         return []
       }
 
       while (resultSet?.goToNextRow()) {
-        const room_id = resultSet.getLong(0);
-        console.log('Room,,,furnitureId:' + JSON.stringify(room_id))
-        //获取房间名字
-        const room_name = resultSet.getString(1);
+        const farmland_id = resultSet.getLong(0);
+        console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
+        //获取农田名字
+        const farmland_name = resultSet.getString(1);
 
-        //获取房间家居组
-        const furnitures: Furniture[] = []
-        const FurnitureResultSet = await this.rdbStore?.query(
-          new relationalStore.RdbPredicates('Furniture')
-            .equalTo('roomId', room_id),
-          ['id', 'name', 'switch', 'roomId', 'type_id']
+        //获取农田工具组
+        const devices: Device[] = []
+        const DeviceResultSet = await this.rdbStore?.query(
+          new relationalStore.RdbPredicates('Device')
+            .equalTo('farmlandId', farmland_id),
+          ['id', 'name', 'switch', 'farmlandId', 'type_id']
         )
-        if (FurnitureResultSet?.goToFirstRow()) {
+        if (DeviceResultSet?.goToFirstRow()) {
           do {
-            const f_id = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('id'))
-            const f_name = FurnitureResultSet.getString(FurnitureResultSet.getColumnIndex('name')).split(":")[0]
-            const f_switch = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('switch'))
-            const f_type = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('type_id'))
-            furnitures.push(new Furniture(f_name, f_switch, f_type))
-            console.log("Room" + f_name + f_switch)
-          } while (FurnitureResultSet.goToNextRow())
+            const f_id = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('id'))
+            const f_name = DeviceResultSet.getString(DeviceResultSet.getColumnIndex('name')).split(":")[0]
+            const f_switch = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('switch'))
+            const f_type = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('type_id'))
+            devices.push(new Device(f_name, f_switch, f_type))
+            console.log("Farmland" + f_name + f_switch)
+          } while (DeviceResultSet.goToNextRow())
         }
-        FurnitureResultSet?.close()
-        rooms.push(new room(room_name, furnitures))
+        DeviceResultSet?.close()
+        farmlands.push(new farmland(farmland_name, devices))
 
       }
       resultSet?.close();
-      console.log('Room,Rooms:' + JSON.stringify(rooms))
-      return rooms;
+      console.log('Farmland,Farmlands:' + JSON.stringify(farmlands))
+      return farmlands;
 
 
     } catch (err) {
       console.error(`Failed to query books: ${err.message}`);
 
-      return rooms
+      return farmlands
     }
   }
-  async getAllFurinture_num() {
+  async getAllDevice_num() {
 
     let Num:number = 0
 
 
-    const predicates_room = new relationalStore.RdbPredicates(this.TABLE_NAME);
+    const predicates_farmland = new relationalStore.RdbPredicates(this.TABLE_NAME);
 
     try {
-      const resultSet = await this.rdbStore?.query(predicates_room);
-      console.log('Rooms queried successfully.');
+      const resultSet = await this.rdbStore?.query(predicates_farmland);
+      console.log('Farmlands queried successfully.');
 
 
       while (resultSet?.goToNextRow()) {
-        const room_id = resultSet.getLong(0);
-        console.log('Room,,,furnitureId:' + JSON.stringify(room_id))
-        const FurnitureResultSet = await this.rdbStore?.query(
-          new relationalStore.RdbPredicates('Furniture')
-            .equalTo('roomId', room_id),
-          ['id', 'name', 'switch', 'roomId', 'type_id']
+        const farmland_id = resultSet.getLong(0);
+        console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
+        const DeviceResultSet = await this.rdbStore?.query(
+          new relationalStore.RdbPredicates('Device')
+            .equalTo('farmlandId', farmland_id),
+          ['id', 'name', 'switch', 'farmlandId', 'type_id']
         )
 
-        if (FurnitureResultSet?.goToFirstRow()) {
+        if (DeviceResultSet?.goToFirstRow()) {
           do {
 
             Num++
-          } while (FurnitureResultSet.goToNextRow())
+          } while (DeviceResultSet.goToNextRow())
         }
-        FurnitureResultSet?.close()
+        DeviceResultSet?.close()
       }
       resultSet?.close();
       return Num
@@ -175,38 +175,38 @@ export class RoomDatabase {
       return Num
     }
   }
-  async getAllFurinture() {
+  async getAllDevice() {
 
 
-    const Fs:Furniture[] = []
+    const Fs:Device[] = []
 
-    const predicates_room = new relationalStore.RdbPredicates(this.TABLE_NAME);
+    const predicates_farmland = new relationalStore.RdbPredicates(this.TABLE_NAME);
 
     try {
-      const resultSet = await this.rdbStore?.query(predicates_room);
-      console.log('Rooms queried successfully.');
+      const resultSet = await this.rdbStore?.query(predicates_farmland);
+      console.log('Farmlands queried successfully.');
 
 
       while (resultSet?.goToNextRow()) {
-        const room_id = resultSet.getLong(0);
-        console.log('Room,,,furnitureId:' + JSON.stringify(room_id))
-        const FurnitureResultSet = await this.rdbStore?.query(
-          new relationalStore.RdbPredicates('Furniture')
-            .equalTo('roomId', room_id),
-          ['id', 'name', 'switch', 'roomId', 'type_id']
+        const farmland_id = resultSet.getLong(0);
+        console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
+        const DeviceResultSet = await this.rdbStore?.query(
+          new relationalStore.RdbPredicates('Device')
+            .equalTo('farmlandId', farmland_id),
+          ['id', 'name', 'switch', 'farmlandId', 'type_id']
         )
 
-        if (FurnitureResultSet?.goToFirstRow()) {
+        if (DeviceResultSet?.goToFirstRow()) {
           do {
-            const f_id = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('id'))
-            const f_name = FurnitureResultSet.getString(FurnitureResultSet.getColumnIndex('name')).split(":")[0]
-            const f_switch = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('switch'))
-            const f_type = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('type_id'))
-            Fs.push(new Furniture(f_name, f_switch, f_type))
+            const f_id = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('id'))
+            const f_name = DeviceResultSet.getString(DeviceResultSet.getColumnIndex('name')).split(":")[0]
+            const f_switch = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('switch'))
+            const f_type = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('type_id'))
+            Fs.push(new Device(f_name, f_switch, f_type))
 
-          } while (FurnitureResultSet.goToNextRow())
+          } while (DeviceResultSet.goToNextRow())
         }
-        FurnitureResultSet?.close()
+        DeviceResultSet?.close()
       }
       resultSet?.close();
       return Fs
@@ -218,96 +218,96 @@ export class RoomDatabase {
     }
   }
 
-  async getRoomById(id: number) {
-    let _room: room = new room('', [])
-    const RoomResultSet =
+  async getFarmlandById(id: number) {
+    let _farmland: farmland = new farmland('', [])
+    const FarmlandResultSet =
       await this.rdbStore?.query(new relationalStore.RdbPredicates(this.TABLE_NAME).equalTo('id', id), ['id', 'name'])
-    while (RoomResultSet?.goToNextRow()) {
-      const room_id = RoomResultSet.getLong(0);
-      console.log('Room,,,furnitureId:' + JSON.stringify(room_id))
-      //获取房间名字
-      const room_name = RoomResultSet.getString(1);
+    while (FarmlandResultSet?.goToNextRow()) {
+      const farmland_id = FarmlandResultSet.getLong(0);
+      console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
+      //获取农田名字
+      const farmland_name = FarmlandResultSet.getString(1);
 
-      //获取房间家居组
-      const furnitures: Furniture[] = []
-      const FurnitureResultSet = await this.rdbStore?.query(
-        new relationalStore.RdbPredicates('Furniture')
-          .equalTo('roomId', room_id),
-        ['id', 'name', 'switch', 'roomId','type_id']
+      //获取农田工具组
+      const devices: Device[] = []
+      const DeviceResultSet = await this.rdbStore?.query(
+        new relationalStore.RdbPredicates('Device')
+          .equalTo('farmlandId', farmland_id),
+        ['id', 'name', 'switch', 'farmlandId','type_id']
       )
-      if (FurnitureResultSet?.goToFirstRow()) {
+      if (DeviceResultSet?.goToFirstRow()) {
         do {
-          const f_id = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('id'))
-          const f_name = FurnitureResultSet.getString(FurnitureResultSet.getColumnIndex('name')).split(":")[0]
-          const f_switch = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('switch'))
-          const f_type = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('type_id'))
-          furnitures.push(new Furniture(f_name, f_switch, f_type))
-          console.log("Room" + f_name + f_switch)
-        } while (FurnitureResultSet.goToNextRow())
+          const f_id = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('id'))
+          const f_name = DeviceResultSet.getString(DeviceResultSet.getColumnIndex('name')).split(":")[0]
+          const f_switch = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('switch'))
+          const f_type = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('type_id'))
+          devices.push(new Device(f_name, f_switch, f_type))
+          console.log("Farmland" + f_name + f_switch)
+        } while (DeviceResultSet.goToNextRow())
       }
-      FurnitureResultSet?.close()
-      _room = new room(room_name, furnitures)
+      DeviceResultSet?.close()
+      _farmland = new farmland(farmland_name, devices)
 
     }
-    RoomResultSet?.close();
-    return _room
+    FarmlandResultSet?.close();
+    return _farmland
   }
 
-  async getFurnitureByR_Id(id: number) {
+  async getDeviceByR_Id(id: number) {
 
-    console.log("Q_Room is  ..ing1")
-    const furnitures: Furniture[] = []
-    const FurnitureResultSet = await this.rdbStore?.query(
-      new relationalStore.RdbPredicates('Furniture')
-        .equalTo('roomId', id),
-      ['id', 'name', 'switch', 'roomId','type_id']
+    console.log("Q_Farmland is  ..ing1")
+    const devices: Device[] = []
+    const DeviceResultSet = await this.rdbStore?.query(
+      new relationalStore.RdbPredicates('Device')
+        .equalTo('farmlandId', id),
+      ['id', 'name', 'switch', 'farmlandId','type_id']
     )
-    console.log("Q_Room is  ..ing2")
-    if (FurnitureResultSet?.goToNextRow()) {
-      FurnitureResultSet.goToFirstRow()
+    console.log("Q_Farmland is  ..ing2")
+    if (DeviceResultSet?.goToNextRow()) {
+      DeviceResultSet.goToFirstRow()
       do{
-        const f_id = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('id'))
-        const f_name = FurnitureResultSet.getString(FurnitureResultSet.getColumnIndex('name')).split(":")[0]
-        const f_switch = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('switch'))
-        const f_type = FurnitureResultSet.getLong(FurnitureResultSet.getColumnIndex('type_id'))
-        furnitures.push(new Furniture(f_name, f_switch, f_type))
-        console.log("Room" + f_name + f_switch)
-      }while (FurnitureResultSet.goToNextRow())
+        const f_id = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('id'))
+        const f_name = DeviceResultSet.getString(DeviceResultSet.getColumnIndex('name')).split(":")[0]
+        const f_switch = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('switch'))
+        const f_type = DeviceResultSet.getLong(DeviceResultSet.getColumnIndex('type_id'))
+        devices.push(new Device(f_name, f_switch, f_type))
+        console.log("Farmland" + f_name + f_switch)
+      }while (DeviceResultSet.goToNextRow())
     } else {
-      console.log("Q_Room is fail")
+      console.log("Q_Farmland is fail")
     }
-    console.log("Q_Room is  ..ing3")
-    FurnitureResultSet?.close()
-    console.log("Q_Room is" + JSON.stringify(furnitures))
+    console.log("Q_Farmland is  ..ing3")
+    DeviceResultSet?.close()
+    console.log("Q_Farmland is" + JSON.stringify(devices))
 
 
-    return furnitures
+    return devices
   }
 
-  async getRoomsIdByName(name: string): Promise<number> {
+  async getFarmlandsIdByName(name: string): Promise<number> {
 
-    console.log('roomwwwwww ing 1')
-    const _room: room = new room('', []);
-    const furnitureList: Furniture[] = [];
-    const predicates_room = new relationalStore.RdbPredicates(this.TABLE_NAME);
-    console.log('roomwwwwww ing 2')
+    console.log('farmlandwwwwww ing 1')
+    const _farmland: farmland = new farmland('', []);
+    const deviceList: Device[] = [];
+    const predicates_farmland = new relationalStore.RdbPredicates(this.TABLE_NAME);
+    console.log('farmlandwwwwww ing 2')
     try {
-      const resultSet = await this.rdbStore?.query(predicates_room);
-      console.log('Rooms queried successfully.');
+      const resultSet = await this.rdbStore?.query(predicates_farmland);
+      console.log('Farmlands queried successfully.');
 
 
       while (resultSet?.goToNextRow()) {
-        const room_id = resultSet.getLong(0);
-        console.log('Room,,,furnitureId:' + JSON.stringify(room_id))
-        //获取房间名字
-        const room_name = resultSet.getString(1);
+        const farmland_id = resultSet.getLong(0);
+        console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
+        //获取农田名字
+        const farmland_name = resultSet.getString(1);
 
-        if (room_name == name) {
-          return room_id
+        if (farmland_name == name) {
+          return farmland_id
         }
       }
       resultSet?.close();
-      console.log('Room,Rooms:' + JSON.stringify(_room))
+      console.log('Farmland,Farmlands:' + JSON.stringify(_farmland))
       return -1;
 
 
@@ -319,60 +319,60 @@ export class RoomDatabase {
   }
 
 
-  async renameFurnitureBy_RIdAndName(r_id: number, name: string, new_name: string) {
+  async renameDeviceBy_RIdAndName(r_id: number, name: string, new_name: string) {
     if (!this.rdbStore) {
       console.error('Database is not initialized.');
       return 0;
     }
     try {
 
-      const sql = 'UPDATE Furniture SET name = ? WHERE roomId =? AND name =?';
+      const sql = 'UPDATE Device SET name = ? WHERE farmlandId =? AND name =?';
       const params = [new_name + ':' + r_id, r_id, name + ':' + r_id];
       await this.rdbStore.executeSql(sql, params);
-      console.log("Room update success:" + new_name + ':' + r_id, r_id, name + ':' + r_id)
+      console.log("Farmland update success:" + new_name + ':' + r_id, r_id, name + ':' + r_id)
 
       return 1
     } catch (err) {
-      console.error(`Failed to delete furniture: ${err.message}`);
+      console.error(`Failed to delete device: ${err.message}`);
       return -1
     }
 
 
   }
 
-  async deleteRoomByName( name: string) {
+  async deleteFarmlandByName( name: string) {
     if (!this.rdbStore) {
       console.error('Database is not initialized.');
       return;
     }
     try {
-      const roomId = await this.getRoomsIdByName(name)
-      //先删除房间ID对应的家居
-      const sql1 = 'DELETE FROM Furniture WHERE roomId =?';
-      const params = [roomId];
+      const farmlandId = await this.getFarmlandsIdByName(name)
+      //先删除农田ID对应的工具
+      const sql1 = 'DELETE FROM Device WHERE farmlandId =?';
+      const params = [farmlandId];
       await this.rdbStore.executeSql(sql1, params);
-      //在删除房间
-      const sql2 = 'DELETE FROM Room WHERE id =?'
+      //在删除农田
+      const sql2 = 'DELETE FROM Farmland WHERE id =?'
       await this.rdbStore.executeSql(sql2,params)
 
-      console.log(`room with name ${name} deleted successfully.`);
+      console.log(`farmland with name ${name} deleted successfully.`);
     } catch (err) {
-      console.error(`Failed to delete furniture: ${err.message}`);
+      console.error(`Failed to delete device: ${err.message}`);
     }
   }
 
-  async deleteFurnitureByRoomIdAndName(roomId: number, name: string) {
+  async deleteDeviceByFarmlandIdAndName(farmlandId: number, name: string) {
     if (!this.rdbStore) {
       console.error('Database is not initialized.');
       return;
     }
     try {
-      const sql = 'DELETE FROM Furniture WHERE roomId =? AND name =?';
-      const params = [roomId, name + ':' + roomId];
+      const sql = 'DELETE FROM Device WHERE farmlandId =? AND name =?';
+      const params = [farmlandId, name + ':' + farmlandId];
       await this.rdbStore.executeSql(sql, params);
-      console.log(`Furniture with roomId ${roomId} and name ${name} deleted successfully.`);
+      console.log(`Device with farmlandId ${farmlandId} and name ${name} deleted successfully.`);
     } catch (err) {
-      console.error(`Failed to delete furniture: ${err.message}`);
+      console.error(`Failed to delete device: ${err.message}`);
     }
   }
 
@@ -382,10 +382,10 @@ export class RoomDatabase {
         console.error('Database is not initialized.');
         return;
       }
-      // 清空 Furniture 表中的数据
-      await this.rdbStore.executeSql('DELETE FROM Furniture');
-      // 清空 Room 表中的数据
-      await this.rdbStore.executeSql('DELETE FROM Room');
+      // 清空 Device 表中的数据
+      await this.rdbStore.executeSql('DELETE FROM Device');
+      // 清空 Farmland 表中的数据
+      await this.rdbStore.executeSql('DELETE FROM Farmland');
       console.log('All data in the tables has been cleared.');
     } catch (err) {
       console.error(`Failed to clear data: ${err.message}`);

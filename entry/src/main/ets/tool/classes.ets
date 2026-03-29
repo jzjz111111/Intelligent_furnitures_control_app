@@ -4,9 +4,11 @@
 export class farmland{
   name:string = ''
   device_s:Device[] = []
-  constructor(name:string,fnt:Device[]) {
+  avatar: string = '';
+  constructor(name:string,fnt:Device[], avatar: string = '') {
     this.name = name
     this.device_s = fnt
+    this.avatar = avatar;
   }
   get_lighting(){
     let max = 0

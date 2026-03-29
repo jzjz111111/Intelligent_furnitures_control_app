@@ -2,7 +2,7 @@ import { McLineChart, Options } from '@mcui/mccharts'
 import util from '@ohos.util';
 import router from '@ohos.router';
 import { temperature_control_device, Device, farmland } from '../tool/classes';
-import { displayFarmland, my_DeepSeek,add_farmland_page,FarmlandOverview,AccountSetting,AboutProject} from '../tool/component';
+import { displayFarmland, my_DeepSeek,add_farmland_page,AccountSetting,AboutProject,ControlLights,ControlWaterValve,ControlTemp} from '../tool/component';
 import { LocalStoraga } from '../data/LocalStorage';
 import { _Udp } from '../tool/UDP';
 import { Data_Tcp, _Tcp } from '../tool/TCP';
@@ -15,6 +15,25 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { _IoTad } from './scan_devices';
 import { FarmScenePage } from './scene_page';
 import { Data_id_yun, DATA_new } from '../tool/IoTad';
+import picker from '@ohos.file.picker';
+import prompt from '@ohos.prompt';
+import promptAction from '@ohos.promptAction';
+import geoLocationManager from '@ohos.geoLocationManager';
+import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
+import { common } from '@kit.AbilityKit';
+
+import type { PermissionRequestResult } from '@ohos.abilityAccessCtrl';
+type Context = common.UIAbilityContext;
+
+
+
+interface WarnHistoryItem {
+  typeText: string;
+  data: number;
+  time: string;
+}
+
+
 
 let DATA_IoTda:string =''
 let Data_Id_me:string = ''
@@ -59,61 +78,73 @@ function resolveIP(ip:number):string{
 }
 
 @Component
-struct homepage{
+struct homepage {
 
-  @State serOption_temp:Options = new Options({
-    xAxis:{data:["0:00","3:00","6:00","9:00","12:00","15:00","18:00","21:00"]},
-    yAxis:{name:'温度(℃)'},
-    series:[{
-      name:'实时温度',
-      data:[14,16,17,18,22,22,21,18],
-      color:"#dd00dd",
-      arcLineWidth:100
+  @State serOption_temp: Options = new Options({
+    xAxis: { data: ["0:00", "3:00", "6:00", "9:00", "12:00", "15:00", "18:00", "21:00"] },
+    yAxis: { name: '温度(℃)' },
+    series: [{
+      name: '实时温度',
+      data: [14, 16, 17, 18, 22, 22, 21, 18],
+      color: "#dd00dd",
+      arcLineWidth: 100
     }]
   })
-  @State serOption_humi:Options = new Options({
-    xAxis:{data:["0:00","3:00","6:00","9:00","12:00","15:00","18:00","21:00"]},
-    yAxis:{name:'湿度(%)'},
-    series:[{
-      name:'实时湿度',
-      data:[88,89,86,78,79,85,88,77],
+  @State serOption_humi: Options = new Options({
+    xAxis: { data: ["0:00", "3:00", "6:00", "9:00", "12:00", "15:00", "18:00", "21:00"] },
+    yAxis: { name: '湿度(%)' },
+    series: [{
+      name: '实时湿度',
+      data: [88, 89, 86, 78, 79, 85, 88, 77],
       color: "#ff039f96",
-      arcLineWidth:100
+      arcLineWidth: 100
     }]
   })
-  @State serOption_co2:Options = new Options({
-    xAxis:{data:["0:00","3:00","6:00","9:00","12:00","15:00","18:00","21:00"]},
-    yAxis:{name:'CO₂浓度(ppm)'},
-    series:[{
-      name:'实时CO₂浓度',
-      data:[11,10,2,11,22,66,10,60],
+  @State serOption_co2: Options = new Options({
+    xAxis: { data: ["0:00", "3:00", "6:00", "9:00", "12:00", "15:00", "18:00", "21:00"] },
+    yAxis: { name: 'CO₂浓度(ppm)' },
+    series: [{
+      name: '实时CO₂浓度',
+      data: [11, 10, 2, 11, 22, 66, 10, 60],
       color: "#ffddb801",
-      arcLineWidth:100
+      arcLineWidth: 100
     }]
   })
-
-  private localAddr:socket.NetAddress |null = null
-  private mixerAddr:socket.NetAddress |null = null
-  @State _h_detail:string = '0%'
-  @State num1:string = '';
-  @State num2:string = '';
-  @State is_Lock:boolean = false
-  @State is_show_r:boolean = false
-  @State is_sleep:boolean = false
-  @State is_chang:boolean = false
-  @State is_delete_h:string= "0%"
-  @Link arr_farmland:farmland[]
-  @State is_show_humidity:boolean = false
-  @State _height:string = "20%"
-  @State backG:string = "app.media.back_house"
-  @State _width:string = '90%'
-  @State temp:string = ''
-  @State humi:string = ''
-  @State co2:string = ''
+  private localAddr: socket.NetAddress | null = null
+  private mixerAddr: socket.NetAddress | null = null
+  @State _h_detail: string = '0%'
+  @State num1: string = '';
+  @State num2: string = '';
+  @State is_Lock: boolean = false
+  @State is_show_r: boolean = false
+  @State is_sleep: boolean = false
+  @State is_chang: boolean = false
+  @State is_delete_h: string = "0%"
+  @Link arr_farmland: farmland[]
+  @State is_show_humidity: boolean = false
+  @State _height: string = "20%"
+  @State backG: string = "app.media.back_house"
+  @State _width: string = '90%'
+  @State temp: string = ''
+  @State humi: string = ''
+  @State co2: string = ''
   @State currentFarm: farmland | null = null;
   @State showMyList: boolean = false;
-  @Link is_warn:boolean
-  @Link warn_data:Datamodel
+  @Link is_warn: boolean
+  @Link warn_data: Datamodel
+  @StorageLink('globalAvatar') avatarUri: string = '';
+  @StorageLink('globalNickName') nickName: string = '智慧农业';
+  @State locationText: string = "定位中...";
+  @State greetText: string = "Good Morning";
+  @State topFarm: farmland | null = null
+  // 存储当前农田的预警历史（纯内存，无数据库）
+  @State currentFarmWarnHistory: WarnHistoryItem[] = [];
+  // 控制历史面板显示
+  @State showWarnHistoryPanel: boolean = false
+  @State globalWarnHistory: WarnHistoryItem[] = []; // 全部农田的预警
+  @State showGlobalHistory: boolean = false; // true=全局，false=当前农田
+  @State showRemoteControl: boolean = false;
+
 
   async aboutToAppear() {
     this.localAddr = {
@@ -123,44 +154,45 @@ struct homepage{
     }
     //接收者的ip地址
     this.mixerAddr = {
-      address:'192.168.191.19',
-      port:8889
+      address: '192.168.191.19',
+      port: 8889
     }
 
-    setTimeout(async ()=>{
-      let farmland:farmland[] = await Farmland_db.getAllFarmlands()
-      if(farmland.length == 0){
-        AlertDialog.show({message:"还没有农田哦，快去录入吧~"})
+    setTimeout(async () => {
+      let farmland: farmland[] = await Farmland_db.getAllFarmlands()
+      if (farmland.length == 0) {
+        AlertDialog.show({ message: "还没有农田哦，快去录入吧~" })
       }
       for (let item of await Farmland_db.getAllFarmlands()) {
         this.arr_farmland.push(item)
-        console.log("q_farmland"+JSON.stringify(item))
+        console.log("q_farmland" + JSON.stringify(item))
       }
 
-      console.log("open_arr_farmland:"+JSON.stringify(this.arr_farmland))
-      setTimeout(async ()=>{
+      console.log("open_arr_farmland:" + JSON.stringify(this.arr_farmland))
+      setTimeout(async () => {
         await tcp.getData()
-        console.log("Tcp_get_data : "+Data_Tcp)
+        console.log("Tcp_get_data : " + Data_Tcp)
         this.analyze_data(Data_Tcp)
         await _IoTad.get_data()
         await this.new_analyze_data(DATA_new)
         Data_Id_me = Data_id_yun
 
-      },1000)
+      }, 1000)
 
-      setInterval(async ()=>{
-        if(Data_Id_me != Data_id_yun){
+      setInterval(async () => {
+        if (Data_Id_me != Data_id_yun) {
           DATA_IoTda = DATA_new
           await this.new_analyze_data(DATA_IoTda)
         }
-      },1000)
-    },100)
+      }, 1000)
+    }, 100)
+    this.setGreetingByTime();
   }
 
-  async judge(temp?:number,humi?:number,co2?:number){
-    let title:string = ''
-    if(temp != null){
-      if(temp>max_temp) {
+  async judge(temp?: number, humi?: number, co2?: number) {
+    let title: string = ''
+    if (temp != null) {
+      if (temp > max_temp) {
         let paramInfo: Datamodel = {
           type: "temp",
           data: temp,
@@ -169,9 +201,21 @@ struct homepage{
         this.warn_data = paramInfo
         this.is_warn = true
         title = "温度过高"
+        // 全局记录
+        this.globalWarnHistory.unshift({
+          typeText: "温度过高警告",
+          data: temp,
+          time: new Date().toLocaleString()
+        });
+        // 当前农田记录
+        this.currentFarmWarnHistory.unshift({
+          typeText: "温度过高警告",
+          data: temp,
+          time: new Date().toLocaleString()
+        });
       }
     }
-    if(humi != null) {
+    if (humi != null) {
       if (humi > max_humi) {
         let paramInfo: Datamodel = {
           type: "humi",
@@ -181,11 +225,22 @@ struct homepage{
         this.warn_data = paramInfo
         this.is_warn = true
         title = "湿度过高"
+        this.globalWarnHistory.unshift({
+          typeText: "湿度过高警告",
+          data: humi,
+          time: new Date().toLocaleString()
+        });
+
+        this.currentFarmWarnHistory.unshift({
+          typeText: "湿度过高警告",
+          data: humi,
+          time: new Date().toLocaleString()
+        });
       }
     }
-    if(co2 != null){
+    if (co2 != null) {
       console.log("co2:::")
-      if(co2>max_co2) {
+      if (co2 > max_co2) {
         let paramInfo: Datamodel = {
           type: "co2",
           data: co2,
@@ -194,6 +249,16 @@ struct homepage{
         this.warn_data = paramInfo
         this.is_warn = true
         title = "co2浓度过高"
+        this.globalWarnHistory.unshift({
+          typeText: "CO₂浓度过高警告",
+          data: co2,
+          time: new Date().toLocaleString()
+        });
+        this.currentFarmWarnHistory.unshift({
+          typeText: "CO₂浓度过高警告",
+          data: co2,
+          time: new Date().toLocaleString()
+        });
       }
     }
 
@@ -210,47 +275,47 @@ struct homepage{
     };
     notificationManager.publish(notificationRequest, (err: BusinessError) => {
       if (err) {
-        hilog.error(DOMAIN_NUMBER, TAG, `Failed to publish notification. Code is ${err.code}, message is ${err.message}`);
+        hilog.error(DOMAIN_NUMBER, TAG,
+          `Failed to publish notification. Code is ${err.code}, message is ${err.message}`);
         return;
       }
       hilog.info(DOMAIN_NUMBER, TAG, 'Succeeded in publishing notification.');
     });
   }
 
-  analyze_data(data:string){
-    let arr:string[] = data.split("/")
-    for(let item of arr){
-      console.log("TCP data:"+item)
-      let values:string = JSON.parse(item)
-      if(typeof values?.["temp"] != "undefined") {
+  analyze_data(data: string) {
+    let arr: string[] = data.split("/")
+    for (let item of arr) {
+      console.log("TCP data:" + item)
+      let values: string = JSON.parse(item)
+      if (typeof values?.["temp"] != "undefined") {
         this.temp = values?.["temp"]
         this.humi = values?.["humi"]
-        this.judge(Number(this.temp),Number(this.humi),Number())
-        console.log("udp send temp"+this.temp+"::"+this.humi)
-      }else {
-        let new_arr_farmland:farmland[] = []
-        for (let r of this.arr_farmland){
-          let new_arr_f:Device[] = []
-          for (let f of r.device_s){
-            if(f.type_id ==values?.["id"]){
-              if(typeof values?.["lighting"] != "undefined") {
-                f = new Device(f.name,values?.["switch"],values?.["id"])
+        this.judge(Number(this.temp), Number(this.humi), Number())
+        console.log("udp send temp" + this.temp + "::" + this.humi)
+      } else {
+        let new_arr_farmland: farmland[] = []
+        for (let r of this.arr_farmland) {
+          let new_arr_f: Device[] = []
+          for (let f of r.device_s) {
+            if (f.type_id == values?.["id"]) {
+              if (typeof values?.["lighting"] != "undefined") {
+                f = new Device(f.name, values?.["switch"], values?.["id"])
                 f.lighting = values?.["lighting"]
-                console.log("udp send t"+f.switch+"::"+f.lighting+'::'+f.type_id)
-              }else if(typeof values?.["a_temp"] != "undefined"){
-                f = new Device(f.name,values?.["switch"],values?.["id"])
+                console.log("udp send t" + f.switch + "::" + f.lighting + '::' + f.type_id)
+              } else if (typeof values?.["a_temp"] != "undefined") {
+                f = new Device(f.name, values?.["switch"], values?.["id"])
                 f.temp = values?.["a_temp"]
                 f.mode = values?.["mode"]
-              }
-              else {
-                f = new Device(f.name,values?.["switch"],values?.["id"])
-                console.log("udp send t"+f.switch+"::"+f.type_id)
+              } else {
+                f = new Device(f.name, values?.["switch"], values?.["id"])
+                console.log("udp send t" + f.switch + "::" + f.type_id)
               }
             }
             new_arr_f.push(f)
           }
-          new_arr_farmland.push(new farmland(r.name,new_arr_f))
-          console.log("UDP Farmland NEW"+JSON.stringify(r))
+          new_arr_farmland.push(new farmland(r.name, new_arr_f))
+          console.log("UDP Farmland NEW" + JSON.stringify(r))
         }
         this.arr_farmland = new_arr_farmland
       }
@@ -258,61 +323,62 @@ struct homepage{
   }
 
   //{"temperature":16,"humidity":0,"co2":0,"motion_state":1,"door_state":0,"brightness":500,"1001":1,"1102":1,"2001":0,"3001_2":0,"4001":0,"3001_1":0,"3001_3":0}
-  async new_analyze_data(data:string){
+  async new_analyze_data(data: string) {
     //data = "{\"temperature\":49,\"humidity\":85,\"co2\":0,\"motion_state\":1,\"door_state\":0,\"brightness\":3000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":22,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
 
-    console.log("IoTad data:"+data)
-    let values:string = JSON.parse(data)
-    if(typeof values?.["temperature"] != "undefined") {
+    console.log("IoTad data:" + data)
+    let values: string = JSON.parse(data)
+    if (typeof values?.["temperature"] != "undefined") {
       this.temp = values?.["temperature"]
       this.humi = values?.["humidity"]
-      this.co2 = values?.['co2']
-      this.judge(Number(this.temp),Number(this.humi),Number(this.co2 ))
-      console.log("IoTad send temp"+this.temp+"::"+this.humi)
-      let new_arr_farmland:farmland[] = []
-      for (let r of this.arr_farmland){
-        let new_arr_f:Device[] = []
-        for (let f of r.device_s){
-          if(typeof values?.[f.type_id.toString()] != "undefined"){
-            let new_v:string = values?.[f.type_id.toString()]
+      this.co2 = "1900"
+      //this.co2 = values?.['co2']
+      this.judge(Number(this.temp), Number(this.humi), Number(this.co2))
+      console.log("IoTad send temp" + this.temp + "::" + this.humi)
+      let new_arr_farmland: farmland[] = []
+      for (let r of this.arr_farmland) {
+        let new_arr_f: Device[] = []
+        for (let f of r.device_s) {
+          if (typeof values?.[f.type_id.toString()] != "undefined") {
+            let new_v: string = values?.[f.type_id.toString()]
             new_v = JSON.parse(new_v)
-            if(f.type_id<999){
-              f = new Device(f.name,values?.[f.type_id.toString()],f.type_id)
+            if (f.type_id < 999) {
+              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
 
-            }else if(f.type_id<1999){
-              f = new Device(f.name,values?.[f.type_id.toString()],f.type_id)
-              f.lighting = (values?.["brightness"])/1000
+            } else if (f.type_id < 1999) {
+              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
+              f.lighting = (values?.["brightness"]) / 1000
 
-            }else if(f.type_id<2999){
-              f = new Device(f.name,values?.[f.type_id.toString()],f.type_id)
+            } else if (f.type_id < 2999) {
+              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
 
-            }else if(f.type_id<3999&&f.type_id>3000){
-              console.log("temperature_control_device:::"+JSON.stringify(f))
-              f = new Device(f.name,values?.[f.type_id.toString()],f.type_id)
-              f.temp = Number(values?.[f.type_id.toString()+"_2"])
-              f.mode = values?.[f.type_id.toString()+"_3"]
-              console.log("temperature_control_device:::"+JSON.stringify(f))
-            }else{
-              f = new Device(f.name,values?.[f.type_id.toString()],f.type_id)
+            } else if (f.type_id < 3999 && f.type_id > 3000) {
+              console.log("temperature_control_device:::" + JSON.stringify(f))
+              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
+              f.temp = Number(values?.[f.type_id.toString() + "_2"])
+              f.mode = values?.[f.type_id.toString() + "_3"]
+              console.log("temperature_control_device:::" + JSON.stringify(f))
+            } else {
+              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
             }
           }
           new_arr_f.push(f)
         }
-        new_arr_farmland.push(new farmland(r.name,new_arr_f))
-        console.log("UDP Farmland NEW"+JSON.stringify(r))
+        new_arr_farmland.push(new farmland(r.name, new_arr_f))
+        console.log("UDP Farmland NEW" + JSON.stringify(r))
       }
       this.arr_farmland = new_arr_farmland
     }
   }
 
   @Builder
-  MenuBar(){
-    Menu(){
-      MenuItem({content:'添加农田'}).onClick(()=>{
+  MenuBar() {
+    Menu() {
+      MenuItem({ content: '添加农田' }).onClick(() => {
         this.is_show_r = true
       })
-      MenuItem({content:"删除农田"}).onClick(()=>{
-        animateTo({duration:500},()=>this.is_delete_h = "90%")
+      MenuItem({ content: "删除农田" }).onClick(() => {
+        animateTo({ duration: 500 }, () => this.is_delete_h = "90%")
       })
     }
   }
@@ -320,296 +386,616 @@ struct homepage{
   @Builder
   FarmlandCard(farmlandItem: farmland) {
     Column() {
+
       Row() {
-        Row(){Image($r("app.media.farm_icon"))
-          .width(24)
-          .height(24)
-          .fillColor('#4A90E2')
-          .margin({ right: 8 })
+        Column() {
+          if (farmlandItem.avatar) {
+            Image(farmlandItem.avatar)
+              .width('100%')
+              .height('100%')
+              .borderRadius(8)
+              .objectFit(ImageFit.Cover)
+          } else {
+            Text("农田头像")
+              .fontSize(20)
+              .fontColor('#666')
+          }
+        }
+        .width('50%')
+        .height(140)
+        .backgroundColor('#f5f5f5')
+        .borderRadius(8)
+        .justifyContent(FlexAlign.Center)
+
+
+        Column({ space: 10 }) {
           Text(farmlandItem.name)
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#333333')
-            .margin({ left: 6 })
-        }
-        Text("+")
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#4A90E2')
-          .onClick(() => {
-            this.currentFarm = farmlandItem;
-            this.showMyList = true;
-          })
-      }
-      .width('100%')
-      .margin({ bottom: 12 })
-      .justifyContent(FlexAlign.SpaceBetween)
-      Grid() {
-        ForEach(farmlandItem.device_s.slice(0, 4), (device: Device) => {
-          GridItem() {
-            Column() {
-              Text(device.name)
-                .fontSize(12)
-                .fontColor('#666666')
-                .margin({ bottom: 4 })
-              Text(device.switch ? '运行中' : '已关闭')
-                .fontSize(10)
-                .fontColor(device.switch ? '#4cd964' : '#999999')
-            }
-            .width('100%')
-            .height(40)
-            .justifyContent(FlexAlign.Center)
-            .backgroundColor('#f8f8f8')
-            .borderRadius(6)
+            .fontColor('#333')
+
+          Column({ space: 6 }) {
+            Button("历史数据")
+              .width('70%')
+              .height(28)
+              .fontSize(12)
+              .backgroundColor('#f0f0f0')
+              .fontColor('#333')
+              .borderRadius(4)
+              .onClick(() => {
+                animateTo({ duration: 500 }, () => {
+                  this._h_detail = "90%"
+                  this.is_show_humidity = true
+                })
+              })
+
+            Button("远程控制")
+              .width('70%')
+              .height(28)
+              .fontSize(12)
+              .backgroundColor('#f0f0f0')
+              .fontColor('#333')
+              .borderRadius(4)
+              .onClick(() => {
+                // 把当前点击的农田 赋值给全局变量
+                this.currentFarm = farmlandItem;
+                // 打开控制页面
+                this.showRemoteControl = true;
+              })
+
+            Button("预警通知")
+              .width('70%')
+              .height(28)
+              .fontSize(12)
+              .backgroundColor('#f0f0f0')
+              .fontColor('#333')
+              .borderRadius(4)
+              .onClick(() => {
+                this.showWarnHistoryPanel = true;
+                this.showGlobalHistory = false;
+              })
           }
-        })
+        }
+        .width('50%')
+        .justifyContent(FlexAlign.Start)
+        .alignItems(HorizontalAlign.Center)
+        .padding({left:30})
       }
-      .columnsTemplate('1fr 1fr')
-      .columnsGap(8)
-      .rowsGap(8)
       .width('100%')
-      Button('进入管理')
-        .width('100%')
-        .height(36)
-        .margin({ top: 12 })
-        .backgroundColor('#4A90E2')
-        .fontColor(Color.White)
-        .borderRadius(6)
-        .onClick(() => {
-          // 这里可以跳转到农田详情页
-          // router.pushUrl({ url: 'pages/FarmDetail', params: { farmlandName: farmlandItem.name } })
-          AlertDialog.show({ message: `进入${farmlandItem.name}管理页面` })
-        })
+      .padding(16)
+      .backgroundColor(Color.White)
+      .justifyContent(FlexAlign.Start)
+      .borderRadius(12)
+      .shadow({
+        color: '#0000001A',
+        radius: 8,
+        offsetX: 2,
+        offsetY: 2
+      })
+
     }
     .width('100%')
-    .padding(16)
-    .backgroundColor(Color.White)
-    .borderRadius(12)
-    .shadow({
-      color: '#0000001A',
-      radius: 8,
-      offsetX: 2,
-      offsetY: 2
-    })
   }
 
   build() {
-    Column(){
-      Row(){
-        Stack(){
-          Row(){
-            //Column().width("25%")
-            Column(){
-              Text("农场环境概览")
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#4A90E2')
-                .margin({ bottom: 10 })
-                .width('100%')
-                .textAlign(TextAlign.Start)
-              Row(){
-                Image($r("app.media._temp"))
-                  .fillColor('#6d9cee')
-                  .width(25)
-                  .height(25)
-                  .margin({ bottom: 3 })
-                Text("温度：")
-                  .fontSize(15)
-                  .width(60)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 3 })
-                  .maxLines(1);
-                Text(`${this.temp || '--'}℃`)
-                  .fontSize(15)
-                  .width(100)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 3});
-                if (this.temp) {
-                  Text(getEnvStatus(Number(this.temp), 'temp').text)
-                    .fontSize(12)
-                    .fontColor(getEnvStatus(Number(this.temp), 'temp').color)
-                    .backgroundColor(`${getEnvStatus(Number(this.temp), 'temp').color}10`) // 浅色背景
-                    .padding({ left: 4, right: 8 })
-                    .borderRadius(4)
-                }
-              }
-              Row(){
-                Image($r("app.media._humi"))
-                  .fillColor('#6d9cee')
-                  .width(25)
-                  .height(25)
-                  .margin({ bottom: 3 })
-                //.size({width:20,height:20})
-                Text("湿度：")
-                  .fontSize(15)
-                  .width(60)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 3 })
-                  .maxLines(1);
-                Text(`${this.humi || '--'}%`)
-                  .fontSize(15)
-                  .width(100)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 3 });
-                if (this.humi) {
-                  Text(getEnvStatus(Number(this.humi), 'humi').text)
-                    .fontSize(12)
-                    .fontColor(getEnvStatus(Number(this.humi), 'humi').color)
-                    .backgroundColor(`${getEnvStatus(Number(this.humi), 'humi').color}10`)
-                    .padding({ left: 4, right: 8 })
-                    .borderRadius(4)
-                }
-              }
-              Row(){
-                Image($r("app.media._co2"))
-                  .fillColor('#6d9cee')
-                  .width(25)
-                  .height(25)
-                //.size({width:20,height:20})
-                Text("CO₂：")
-                  .fontSize(15)
-                  .width(60)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 2 })
-                  .maxLines(1);
-                Text(`${this.co2 || '--'}ppm`)
-                  .fontSize(15)
-                  .width(100)
-                  .fontColor( '#6d9cee')
-                  .margin({ bottom: 2 });
-                if (this.co2) {
-                  Text(getEnvStatus(Number(this.co2), 'co2').text)
-                    .fontSize(12)
-                    .fontColor(getEnvStatus(Number(this.co2), 'co2').color)
-                    .backgroundColor(`${getEnvStatus(Number(this.co2), 'co2').color}10`)
-                    .padding({ left: 4, right: 8 })
-                    .borderRadius(4)
-                }
-              }
-            }
-            .width("80%")
-            .height('100')
-            .justifyContent(FlexAlign.Start)
-            .padding({left:0})
-            .onClick(()=>{
-              animateTo({duration:500},()=>{
-                this._h_detail = "90%"
-                this.is_show_humidity = true
-              })
-            })
-            Column(){
-              Row(){
-                Button('+')
-                  .backgroundColor(this.is_sleep?'transparent'   : '#e0efff')
-                  .fontColor(this.is_sleep ? 'transparent'  : '#6d9cee')
-                  .padding({ left: 5, right: 5 })
-                  .bindMenu(this.MenuBar)
-                  .width(50)
-                  .height(50);
-              }
-            }
-            .width(80)
-            //.alignSelf(ItemAlign.End)
-            //.justifyContent(FlexAlign.End)
-            //.padding({right:10})
-          }
-          .height(this._height)
-          .width(this._width)
-          .backgroundImage($r(this.backG))
-          .backgroundImageSize(ImageSize.Cover)
-          .padding(20)
-          .borderRadius(15)
-          .shadow({
-            color: '#0000005d',
-            radius: 10,
-            offsetX: 10,
-            offsetY: 10
-          });
-          if(this.is_show_r){
-            Column().width("100%").height('20%').backgroundColor("#9c000000")
-          }
-        }
-      }
-      //显示温度详情数据
-      detail_data({
-        _h:this._h_detail,
-        is_show:this.is_show_humidity,
-        serOption_humi:this.serOption_humi,
-        serOption_temp:this.serOption_temp,
-        serOption_co2:this.serOption_co2
-      })
-      //删除农田
-      delete_farmland({_h:this.is_delete_h,arr_farmland:this.arr_farmland})
-      /* Column(){
-         displayFarmland({is_show_r:this.is_show_r,arr_farmland:this.arr_farmland,is_sleep:this.is_sleep})
-       }
-       .height("90%")
-       .width('100%')*/
+    Stack() {
+      Scroll() {
+        Column() {
 
-      if(this.is_show_r){
+          Column() {
+            Row() {
+              Text(this.locationText)
+                .fontSize(16)
+                .padding({
+                  left: 10,
+                  right: 5,
+                  top: 10,
+                  bottom: 5
+                })
+                .borderRadius(5)
+              Image($r("app.media.search"))
+                .width(22)
+                .height(22)
+                .margin({ right: 12 })
+              Image($r("app.media.ic_alarm"))
+                .width(20)
+                .height(18)
+                .padding({ right: 5 })
+                .onClick(() => {
+                  this.showGlobalHistory = true;
+                  this.showWarnHistoryPanel = true;
+                })
+
+            }
+            .width("100%")
+            .margin({ bottom: 10 })
+
+            Stack() {
+              Column() {
+                Column() {
+                  Row() {
+                    Image(this.avatarUri || $r("app.media.user"))
+                      .width(50)
+                      .height(50)
+                      .borderRadius(25)
+                      .margin({ right: 5 })
+
+                    Column() {
+                      Text(this.greetText)
+                        .fontSize(19)
+                        .fontWeight(FontWeight.Normal)
+                      Text(this.nickName)
+                        .fontSize(21)
+                        .fontWeight(FontWeight.Medium)
+                    }
+                    .alignItems(HorizontalAlign.Start)
+
+                  }
+                  .width("100%")
+                  .padding({ bottom: 10 })
+
+                  Row() {
+                    McLineChart({ options: this.serOption_temp })
+                      .width('65%')
+                      .height(200)
+                    Column() {
+                      Text(`${this.temp || '--'}°C`)
+                        .fontSize(40)
+                        .maxLines(1)
+                        .textAlign(TextAlign.End)
+                      Text("多云 | 东风")
+                        .maxLines(1)
+                        .textAlign(TextAlign.End)
+                    }
+
+                    .alignItems(HorizontalAlign.End)
+                    .padding({ right: 10 })
+
+                  }
+                  .width("100%")
+                  .alignItems(VerticalAlign.Center)
+                  .justifyContent(FlexAlign.SpaceBetween)
+                  .padding({ right: 10 })
+
+                }
+
+              }
+              .width("100%")
+              .padding(20)
+              .backgroundColor(Color.White)
+              .border({ width: 1, color: "#333" })
+              .borderRadius(10)
+            }
+            .width("92%")
+            .margin({ bottom: 20 })
+
+            Row() {
+              Column() {
+                Text("湿度")
+                  .fontSize(30)
+                  .fontColor('#6d9cee')
+                  .margin({ bottom: 10 })
+                  .maxLines(1);
+
+                Row({ space: 4 }) {
+                  Text(`${this.humi || '--'}%`)
+                    .fontSize(15)
+                    .fontColor('#6d9cee');
+                  if (this.humi) {
+                    Text(getEnvStatus(Number(this.humi), 'humi').text)
+                      .fontSize(12)
+                      .fontColor(getEnvStatus(Number(this.humi), 'humi').color)
+                      .backgroundColor(`${getEnvStatus(Number(this.humi), 'humi').color}10`)
+                      .padding({
+                        left: 3,
+                        right: 3,
+                        top: 1,
+                        bottom: 1
+                      })
+                      .margin({ left: 3 })
+                      .borderRadius(4)
+                  }
+                }
+                .margin({ bottom: 3 });
+              }
+              .width("48%")
+              .padding(12)
+              .backgroundColor(Color.White)
+              .border({ width: 1 })
+              .borderRadius(10)
+
+              Column() {
+                Text("CO₂")
+                  .fontSize(30)
+                  .fontColor('#6d9cee')
+                  .margin({ bottom: 10 })
+                  .maxLines(1);
+
+                Row({ space: 4 }) {
+                  Text(`${this.co2 || '--'}ppm`)
+                    .fontSize(15)
+                    .fontColor('#6d9cee');
+                  if (this.co2) {
+                    Text(getEnvStatus(Number(this.co2), 'co2').text)
+                      .fontSize(12)
+                      .fontColor(getEnvStatus(Number(this.co2), 'co2').color)
+                      .backgroundColor(`${getEnvStatus(Number(this.co2), 'co2').color}10`)
+                      .padding({ left: 4, right: 8 })
+                      .borderRadius(4)
+                  }
+
+                }
+                .margin({ bottom: 3 });
+              }
+              .width("48%")
+              .padding(12)
+              .backgroundColor(Color.White)
+              .border({ width: 1 })
+              .borderRadius(10)
+            }
+            .width("90%")
+            .justifyContent(FlexAlign.SpaceBetween)
+            Row() {
+              Text("我的农田")
+                .fontSize(24)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#333')
+
+
+              Blank()
+
+              Text("管理农田")
+                .fontSize(14)
+                .fontColor('#4A90E2')
+                .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+                .border({ width: 1, color: '#4A90E2' })
+                .borderRadius(6)
+                .bindMenu(this.MenuBar)
+            }
+            .width('90%')
+            .justifyContent(FlexAlign.SpaceBetween)
+            .margin({ top:16,bottom: 16 })
+
+            Scroll() {
+              Flex({ alignItems: ItemAlign.Center }) {
+                ForEach(this.arr_farmland, (item: farmland) => {
+                  Column({ space: 4 }) {
+                    if (item.avatar) {
+                      Image(item.avatar)
+                        .width(60)
+                        .height(60)
+                        .borderRadius(30)
+                        .objectFit(ImageFit.Cover)
+                    } else {
+                      Circle({ width: 60, height: 60 })
+                        .fill(Color.White)
+                        .stroke('#4A90E2')
+                        .strokeWidth(2)
+                    }
+                    Text(item.name)
+                      .fontSize(14)
+                      .fontColor('#333')
+                  }
+                  .width('25%')
+                  .alignItems(HorizontalAlign.Center)
+                  .onClick(() => {
+                    this.topFarm = item
+                  })
+                })
+              }
+              .padding(10)
+            }
+            .scrollable(ScrollDirection.Horizontal)
+            .scrollBar(BarState.Off)
+            .width('100%')
+            .margin({ bottom: 16 })
+
+            List({ space: 16 }) {
+              if (this.arr_farmland.length === 0) {
+                ListItem() {
+                  Column() {
+                    Image($r("app.media.empty_farm"))
+                      .width(80)
+                      .height(80)
+                      .margin({ bottom: 12 })
+                    Text("暂无农田数据")
+                      .fontSize(16)
+                      .fontColor('#999999')
+                    Text("点击右上角 + 号添加农田")
+                      .fontSize(12)
+                      .fontColor('#cccccc')
+                      .margin({ top: 4 })
+                  }
+                  .width('100%')
+                  .height(200)
+                  .justifyContent(FlexAlign.Center)
+                }
+              } else {
+                // 农田卡片列表
+                ForEach(this.arr_farmland, (farmlandItem: farmland) => {
+                  ListItem() {
+                    this.FarmlandCard(farmlandItem)
+                  }
+                  .padding({ left: 16, right: 16 })
+                })
+
+              }
+            }
+            .width('100%')
+            .flexGrow(1)
+            .padding({ bottom: 20 })
+
+          }
+          .width("100%")
+          .backgroundColor("#F5F5F5")
+
+        }
+        .width('100%')
+      }
+      .height('100%')
+      .width('100%')
+
+      if (this.is_show_r) {
         add_farmland_page({
-          arr: $arr_farmland,    // 双向绑定农田列表（新增后同步更新）
+          arr: $arr_farmland, // 双向绑定农田列表（新增后同步更新）
           is_show: $is_show_r // 双向绑定弹窗开关（关闭时同步隐藏）
         })
       }
-      if (this.showMyList && this.currentFarm) {
-        displayFarmland({
-          currentFarm: this.currentFarm,
-          is_sleep: this.is_sleep,
-          showList: $showMyList
+      delete_farmland({ _h: this.is_delete_h, arr_farmland: this.arr_farmland })
+
+      //显示温度详情数据
+      if (this.is_show_humidity){
+        detail_data({
+        _h: this._h_detail,
+        is_show: this.is_show_humidity,
+        serOption_humi: this.serOption_humi,
+        serOption_temp: this.serOption_temp,
+        serOption_co2: this.serOption_co2
+      })
+      }
+      // 全局预警历史面板（所有农田）
+      if (this.showWarnHistoryPanel) {
+        Column() {
+
+          Button("返回")
+            .onClick(() => {
+              this.showWarnHistoryPanel = false;
+            })
+            .margin({ bottom: 10 });
+
+          Text(this.showGlobalHistory ? "全部农田预警历史" : "当前农田预警记录")
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .margin({ bottom:10 });
+
+          Scroll() {
+            Column({ space: 12 }) {
+              if (this.currentFarmWarnHistory.length === 0) {
+                Text("暂无预警记录")
+                  .fontSize(16)
+                  .fontColor("#999")
+                  .margin({ top: 30 });
+              } else {
+                ForEach(this.currentFarmWarnHistory? this.globalWarnHistory : this.currentFarmWarnHistory,(item: WarnHistoryItem) => {
+                  Column() {
+                    Text(item.typeText)
+                      .fontSize(16)
+                      .fontColor(Color.Red)
+                      .fontWeight(FontWeight.Bold);
+                    Text("数值：" + item.data)
+                      .fontSize(14);
+                    Text("时间：" + item.time)
+                      .fontSize(12)
+                      .fontColor("#666");
+                  }
+                  .width("100%")
+                  .backgroundColor(Color.White)
+                  .padding(15)
+                  .borderRadius(10)
+                  .shadow({ radius: 5, color: "#1a000000" });
+                });
+              }
+            }
+            .width("100%")
+            .padding(10);
+          }
+          .layoutWeight(1);
+        }
+        .width("100%")
+        .height("90%")
+        .backgroundColor("#f5f5f5")
+        .padding(10);
+      }
+      if (this.showRemoteControl) {
+        RemoteControlPage({
+          showPage: this.showRemoteControl,
+          farm: this.currentFarm,
+          temp: this.temp,   // 温度
+          humi: this.humi,  // 湿度
+          co2: this.co2,     // CO2
+          currentFarm: $currentFarm, // 传双向绑定
+
         })
       }
-      Column(){
-        Text("我的农田")
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
-          .margin({ top: 16, bottom: 12, left: 16 })
-          .width('100%')
-          .textAlign(TextAlign.Start)
-        List({ space: 16 }) {
-          if (this.arr_farmland.length === 0) {
-            ListItem() {
-              Column() {
-                Image($r("app.media.empty_farm"))
-                  .width(80)
-                  .height(80)
-                  .margin({ bottom: 12 })
-                Text("暂无农田数据")
-                  .fontSize(16)
-                  .fontColor('#999999')
-                Text("点击右上角 + 号添加农田")
-                  .fontSize(12)
-                  .fontColor('#cccccc')
-                  .margin({ top: 4 })
-              }
-              .width('100%')
-              .height(200)
-              .justifyContent(FlexAlign.Center)
-            }
-          } else {
-            // 农田卡片列表
-            ForEach(this.arr_farmland, (farmlandItem: farmland) => {
-              ListItem() {
-                this.FarmlandCard(farmlandItem)
-              }
-              .padding({ left: 16, right: 16 })
-            })
-          }
-        }
-        .width('100%')
-        .flexGrow(1)
-        .padding({ bottom: 20 })
-      }
-      .height("90%")
-      .width('100%')
-
     }
-    .height("100%")
+    .width('100%')
+    .height('100%')
+  }
+
+  setGreetingByTime() {
+    const hour = new Date().getHours();
+
+    if (hour >= 5 && hour < 12) {
+      this.greetText = "Good Morning";
+    } else if (hour >= 12 && hour < 18) {
+      this.greetText = "Good Afternoon";
+    } else {
+      this.greetText = "Good Evening";
+    }
+  }
+
+
+
+}
+@Component
+export struct RemoteControlPage {
+  @Link showPage: boolean;
+  @Link farm: farmland | null ;
+  @Prop temp: string = '';
+  @Prop humi: string = '';
+  @Prop co2: string = '';
+  @Link currentFarm: farmland | null;
+  @State showMyList: boolean = false;
+  @State is_sleep: boolean = false;
+
+
+  build() {
+  Stack(){
+    Column() {
+      Row() {
+        Text("< 返回")
+          .fontSize(16)
+          .fontColor("#007AFF")
+          .onClick(() => {
+            this.showPage = false;
+          })
+        Blank()
+        Text("远程控制")
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+        Blank()
+      }
+      .width("100%")
+      .padding(12)
+      .backgroundColor(Color.White)
+
+      Row({ space: 15 }) {
+        if (this.farm?.avatar) {
+          Image(this.farm.avatar)
+            .width(100)
+            .height(100)
+            .borderRadius(10)
+            .objectFit(ImageFit.Cover)
+        } else {
+          Text("农田图片")
+            .width(100)
+            .height(100)
+            .backgroundColor("#eee")
+            .textAlign(TextAlign.Center)
+        }
+
+        Column({ space: 6 }) {
+          Text(this.farm?.name || "未知农田")
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+
+          Text("面积：8 亩")
+            .fontSize(14)
+            .fontColor("#666")
+          Text("种类：普通品种")
+            .fontSize(14)
+            .fontColor("#666")
+          Text("位置：一号园区")
+            .fontSize(14)
+            .fontColor("#666")
+        }
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width("90%")
+      .padding(12)
+      .backgroundColor(Color.White)
+      .borderRadius(12)
+      .margin({ top: 10 })
+
+
+      Row({ space: 10 }) {
+        this.DataCard("温度", this.temp + "℃", "#ff6b6b")
+        this.DataCard("湿度", this.humi + "%", "#4dabf7")
+        this.DataCard("CO₂", this.co2 + "ppm", "#9775fa")
+      }
+      .width("90%")
+      .justifyContent(FlexAlign.SpaceBetween)
+      .margin({ top: 15, bottom: 10 })
+
+      Button("+ 添加设备")
+        .width("90%")
+        .height(48)
+        .fontSize(12)
+        .backgroundColor("#4A90E2")
+        .fontColor(Color.White)
+        .borderRadius(6)
+        .margin({ top: 5, bottom: 5 })
+        .onClick(() => {
+          this.currentFarm = this.farm;
+          this.showMyList = true;
+        })
+      Scroll() {
+        Column({ space: 12 }) {
+          if (this.farm?.device_s.length === 0) {
+            Text("暂无设备，点击上方添加设备")
+              .fontSize(16)
+              .fontColor("#999")
+              .margin({ top: 10 });
+          }
+
+          ForEach(this.farm?.device_s || [], (item: Device) => {
+            this.ControlItem(item.name, item.switch === 1);
+          })
+        }
+        .width("90%")
+        .padding(0)
+        .margin({ top: 0 })
+      }
+      .layoutWeight(1)
+    }
     .width("100%")
+    .height("100%")
+    .backgroundColor("#F5F5F5")
+    if (this.showMyList && this.currentFarm) {
+      displayFarmland({
+        currentFarm: this.currentFarm,
+        is_sleep: $is_sleep,
+        showList: $showMyList
+      })
+    }
+
+
+  }
+  }
+
+  @Builder
+  DataCard(title: string, value: string, color: string) {
+    Column({ space: 6 }) {
+      Text(title)
+        .fontSize(14)
+        .fontColor("#666")
+      Text(value)
+        .fontSize(22)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(color)
+    }
+    .width('31%')
+    .height(80)
+    .backgroundColor(Color.White)
+    .borderRadius(10)
+    .justifyContent(FlexAlign.Center)
+  }
+
+
+  @Builder
+  ControlItem(name: string, isOn: boolean) {
+    Row() {
+      Text(name)
+        .fontSize(16)
+      Blank()
+      Toggle({ type: ToggleType.Switch, isOn: isOn })
+    }
+    .width("100%")
+    .padding(14)
+    .backgroundColor(Color.White)
+    .borderRadius(10)
   }
 }
-
 @Component
 struct detail_data {
   @Link is_show: boolean
@@ -621,6 +1007,7 @@ struct detail_data {
 
   build() {
     Column() {
+      if (this.is_show) {
       Button("返回")
         .onClick(() => {
           animateTo({ duration: 500 }, () => {
@@ -629,7 +1016,7 @@ struct detail_data {
           })
         })
         .margin({ bottom: 10 })
-      if (this.is_show) {
+
         Scroll() {
           Column() {
             Row() {
@@ -699,15 +1086,15 @@ struct detail_data {
           .width('100%')
         }
         .width('100%')
-        .height('75%')
+        .layoutWeight(1)
         .scrollBar(BarState.Auto)
         .padding(10)
       }
     }
-    .height(this._h === "0%" ? "0%" : "100%")
     .width(this._w)
-    .padding(10)
-    .backgroundColor('#f5f5f5')
+    .height(this.is_show ? "100%" : "0%")
+    .backgroundColor(this.is_show ? '#f5f5f5' : Color.Transparent)
+    .padding(this.is_show ? 10 : 0)
   }
 }
 @Component
@@ -855,7 +1242,6 @@ struct ConfirmDialog{
     .height("100%")
   }
 }
-
 @Component
 struct userpage {
   localstorage: LocalStoraga = new LocalStoraga("userData");
@@ -863,11 +1249,20 @@ struct userpage {
   @State f_arr: Device[] = [];
   @State _height: string = "0%";
   @State currentPage: string = 'main';
+  @State avatarUri: string = '';
+  @State nickName: string = '智慧农业';
+  @State signText: string = '农场主';
+  @State isNickDialogVisible: boolean = false;
+  @State isSignDialogVisible: boolean = false;
+  @State tempNick: string = '';
+  @State tempSign: string = '';
 
   aboutToAppear() {
     this.localstorage.getDate("last_login").then(_User_ => {
       this.username = _User_ as string;
     });
+    AppStorage.setOrCreate('globalAvatar', this.avatarUri);
+    AppStorage.setOrCreate('globalNickName', this.nickName);
   }
 
   build() {
@@ -875,68 +1270,133 @@ struct userpage {
       if (this.currentPage === 'main') {
         Column() {
           Column() {
-            Column() {
-              Image($r("app.media.user"))
-                .width(80)
-                .height(80)
-                .borderRadius(40)
-                .backgroundColor(Color.White)
-              Text(this.username || '智慧农田用户')
-                .fontSize(22)
-                .fontColor(Color.White)
+            Row() {
+              Text("个人中心")
+                .fontSize(20)
                 .fontWeight(FontWeight.Medium)
-                .padding({top:10,bottom:10})
-              Text("农场主")
-                .fontSize(14)
-                .fontColor(Color.White)
-                .backgroundColor('#ffb800')
-                .padding({ left: 12, right: 12, top: 4, bottom: 4 })
-                .borderRadius(12)
+                .fontColor(Color.Black)
             }
             .width('100%')
-            .alignItems(HorizontalAlign.Center)
-            .margin({ bottom: 20 })
+            .justifyContent(FlexAlign.Center)
+            .padding({ top: 15, bottom: 10 })
+
+            Row() {
+              Image(this.avatarUri || $r("app.media.user"))
+                .width(60)
+                .height(60)
+                .borderRadius(30)
+                .backgroundColor(Color.White)
+                .onClick(() => {
+                  this.selectAvatar();
+                })
+              Column() {
+                Text(this.nickName)
+                  .fontSize(22)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(Color.Black)
+                  .onClick(() => {
+                    this.tempNick = this.nickName;
+                    this.isNickDialogVisible = true;
+                  })
+
+                Text(this.signText)
+                  .fontSize(14)
+                  .fontColor('#666666')
+                  .onClick(() => {
+                    this.tempSign = this.signText;
+                    this.isSignDialogVisible = true;
+                  })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .margin({ left: 12 })
+              .flexGrow(1)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, bottom: 15 })
           }
           .width('100%')
-          .backgroundColor('#10B981')
-          .padding({ top: 40, bottom: 30 })
+          .backgroundColor('#E8F5E9')
 
           Row() {
-            Text("开启我的智慧农场")
-              .fontSize(35)
-              .fontColor('#10B981')
-              .fontWeight(FontWeight.Bold)
-              .padding({ left: 20, right: 20, top: 20, bottom: 20 })
+            Row() {
+              Text("⚙️")
+                .fontSize(20)
+                .margin({ right: 8 })
+              Column() {
+                Text("农业设置")
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(Color.White)
+                Text("农场参数与环境阈值配置")
+                  .fontSize(12)
+                  .fontColor(Color.White)
+              }
+              .alignSelf(ItemAlign.Start)
+            }
+            .flexGrow(1)
+
+            Button("关于中心")
+              .fontSize(14)
+              .fontColor(Color.Black)
+              .backgroundColor('#FFE8B0')
+              .borderRadius(16)
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .onClick(() => this.currentPage = 'about')
           }
-          .height(140)
-          .width('90%')
-          .backgroundColor('#E8F5E9')
+          .width('92%')
+          .backgroundColor('#374151')
           .borderRadius(12)
-          .margin({ top: 16, bottom: 20 })
-          .justifyContent(FlexAlign.Center)
+          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+          .margin({ top: 10, bottom: 16 })
+
+          Column() {
+            Text("个人信息")
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .width('100%')
+              .padding({ left: 16, top: 12, bottom: 12 })
+
+            Row() {
+              this.QuickItem("个人信息", "🏠")
+              this.QuickItem("农场管理", "📋")
+              this.QuickItem("系统设置", "⚙️")
+              this.QuickItem("帮助中心", "❓")
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.SpaceAround)
+            .padding({ bottom: 12 })
+          }
+          .width('100%')
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ left: 16, right: 16 })
 
           Scroll() {
             Column({ space: 0 }) {
+              this.MenuItem("设备管理", () => {})
+              this.MenuItem("地块管理", () => {})
+              this.MenuItem("数据报表", () => {})
+              this.MenuItem("通知设置", () => {})
+              this.MenuItem("帮助与反馈", () => {})
               this.MenuItem("账号设置", () => this.currentPage = 'account')
               this.MenuItem("关于智慧农田系统", () => this.currentPage = 'about')
               this.MenuItem("退出登录", () => {
                 this.localstorage.setDate('is_land', false);
                 router.replaceUrl({ url: 'pages/Open' });
               })
+              Text('')
+                .height(20)
             }
             .width('100%')
             .backgroundColor(Color.White)
             .borderRadius(12)
-            .margin({ left: 16, right: 16 })
+            .margin({ left: 16, right: 16, top: 16 })
             .padding({ top: 8, bottom: 8 })
           }
           .flexGrow(1)
-
-          Text("版本号1.0.0")
-            .fontSize(14)
-            .fontColor('#6B7280')
-            .margin({ top: 20, bottom: 20 })
+          .height(0)
         }
+
         .width('100%')
         .height('100%')
         .backgroundColor('#F3F4F6')
@@ -959,9 +1419,99 @@ struct userpage {
         .width('100%')
         .height('100%')
       }
+      this.NickNameDialog()
+      this.SignTextDialog()
     }
     .width('100%')
     .height('100%')
+  }
+  @Builder NickNameDialog() {
+    if (this.isNickDialogVisible) {
+      Column() {
+        Text("修改用户名")
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .margin({ top: 15, bottom: 10 })
+        TextInput({ text: this.tempNick })
+          .width('80%')
+          .height(40)
+          .margin({ bottom: 20 })
+          .onChange((value) => {
+            this.tempNick = value; // 实时同步输入
+          })
+        Row() {
+          Button("取消")
+            .width(80)
+            .onClick(() => {
+              this.isNickDialogVisible = false;
+            })
+          Button("确定")
+            .width(80)
+            .margin({ left: 20 })
+            .onClick(() => {
+              this.nickName = this.tempNick ;
+              AppStorage.setOrCreate('globalNickName', this.nickName);
+              this.isNickDialogVisible = false;
+            })
+        }
+      }
+      .width('90%')
+      .padding(20)
+      .backgroundColor(Color.White)
+      .borderRadius(12)
+      .align(Alignment.Center)
+      .position({ x: '5%', y: '30%' })
+    }
+  }
+  @Builder SignTextDialog() {
+    if (this.isSignDialogVisible) {
+      Column() {
+        Text("修改签名")
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .margin({ top: 15, bottom: 10 })
+        TextInput({ text: this.tempSign })
+          .width('80%')
+          .height(40)
+          .margin({ bottom: 20 })
+          .onChange((value) => {
+            this.tempSign = value; // 实时同步输入
+          })
+        Row() {
+          Button("取消")
+            .width(80)
+            .onClick(() => {
+              this.isSignDialogVisible = false;
+            })
+          Button("确定")
+            .width(80)
+            .margin({ left: 20 })
+            .onClick(() => {
+              this.signText = this.tempSign ;
+              this.isSignDialogVisible = false;
+            })
+        }
+      }
+      .width('90%')
+      .padding(20)
+      .backgroundColor(Color.White)
+      .borderRadius(12)
+      .align(Alignment.Center)
+      .position({ x: '5%', y: '30%' })
+    }
+  }
+
+  @Builder
+  QuickItem(title: string, icon: string) {
+    Column() {
+      Text(icon)
+        .fontSize(28)
+        .margin({ bottom: 4 })
+      Text(title)
+        .fontSize(12)
+        .fontColor('#4B5563')
+    }
+    .alignSelf(ItemAlign.Center)
   }
 
   @Builder
@@ -993,15 +1543,40 @@ struct userpage {
         .color('#E5E7EB')
     }
   }
+
   getIconForTitle(title: string): string {
     switch (title) {
+      case "设备管理": return "📡";
+      case "地块管理": return "🌾";
+      case "数据报表": return "📊";
+      case "通知设置": return "🔔";
+      case "帮助与反馈": return "❓";
       case "账号设置": return "👤";
       case "关于智慧农田系统": return "ℹ️";
       case "退出登录": return "🚪";
       default: return "📋";
     }
   }
-}
+  // 选择头像
+  async selectAvatar() {
+    let photoPicker = new picker.PhotoViewPicker();
+    let option = new picker.PhotoSelectOptions();
+    option.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+    option.maxSelectNumber = 1;
+    try {
+      let result = await photoPicker.select(option);
+      if (result.photoUris.length > 0) {
+        this.avatarUri = result.photoUris[0];
+        AppStorage.setOrCreate('globalAvatar', this.avatarUri);
+      }
+    } catch (err) {
+      console.error("选择头像失败", err);
+    }
+  }
+
+  }
+
+
 @Entry
 @Component
 struct Index {
@@ -1074,23 +1649,6 @@ struct Index {
     .backgroundImage(num == this.selectnumber ? $r('app.media.farm_bg') : $r('app.media.bottom_bg2'))
     .backgroundImageSize(ImageSize.Cover)
   }
-  @Builder
-  MyBuilder_overview(title: string, num: number) {
-    Column() {
-      Row().width("100%").height(15);
-      Image($r("app.media.add"))
-        .height(num == this.selectnumber ? 20 : 10)
-        .width(num == this.selectnumber ? 20 : 10)
-        .fillColor(num == this.selectnumber ? '#4A90E2' : Color.White);
-
-      Text("设备总控")
-        .fontColor(num == this.selectnumber ? '#4A90E2' : Color.White);
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundImage(num == this.selectnumber ? $r('app.media.farm_bg') : $r('app.media.bottom_bg2'))
-    .backgroundImageSize(ImageSize.Cover)
-  }
 
   build() {
     Stack() {
@@ -1101,26 +1659,15 @@ struct Index {
             homepage({is_warn:this.is_warn,warn_data:this.warn_data,arr_farmland:this.arr_farmland})
           }
           .tabBar(this.MyBuilder_home("农场总览",0))
-          TabContent(){
-            FarmlandOverview({
-              arr_farmland: this.arr_farmland,
-              is_show_lights: this.is_show_lights,
-              is_show_temperature_control_device: this.is_show_temperature_control_device,
-              is_show_robot: this.is_show_robot,
-              is_show_waterValve: this.is_show_waterValve,
-              is_show_dan: this.is_show_dan,
-              edit_f: this.edit_f
-            })
-          }
-          .tabBar(this.MyBuilder_overview("设备总控", 1))
+
           TabContent(){
             FarmScenePage({arr_farmland:this.arr_farmland})
           }
-          .tabBar(this.MyBuilder_add("智能场景",2))
+          .tabBar(this.MyBuilder_add("智能场景",1))
 
           TabContent(){
             userpage()
-          }.tabBar(this.MyBuilder_user("个人中心",3))
+          }.tabBar(this.MyBuilder_user("个人中心",2))
 
         }
         .width('100%')

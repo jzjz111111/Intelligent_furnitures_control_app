@@ -4,7 +4,7 @@ import Base from '@ohos.base'
 
 import wifi from '@ohos.wifi';
 import { router } from '@kit.ArkUI';
-import { LocalStoraga } from '../data/LocalStorage';
+import { LocalStorage } from '../data/LocalStorage';
 
 
 //***********本页面专门用来获取权限，初始化信息*********
@@ -17,7 +17,7 @@ export let _IoTad:IoTda = new IoTda()
 @Component
 struct Scan_devices {
   @State message: string = '开始体验';
-  locals:LocalStoraga = new LocalStoraga("scan")
+  locals:LocalStorage = new LocalStorage("scan")
   async aboutToAppear() {
     await _IoTad.init()
     if(await this.locals.getDate("is_scan")){

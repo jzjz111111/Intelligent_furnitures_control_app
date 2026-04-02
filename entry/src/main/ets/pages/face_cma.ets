@@ -8,7 +8,7 @@ import buffer from '@ohos.buffer';
 import { webview } from '@kit.ArkWeb';
 import { http } from '@kit.NetworkKit';
 
-
+@Entry
 @Component
 export struct face_cam {
   @State chooseImage: PixelMap | undefined = undefined

@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B974F42CDE5CCCEDD7931B013D307526C90898BCAB79454BDE6CF5D85F79D7AFD6655BA5419703C",
+          "keyPassword": "0000001A13B623B25A8FA6E189B720A44928904355AC4F3B8077FA10FFEB21DCE98A2E471471EABBC231",
           "profile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p12",
-          "storePassword": "0000001B4574A378ED5869CF7A9A12A4757EE48762A1ED43A5A6B5FD1CEF77F830A6156C71A9F8D09A586F"
+          "storePassword": "0000001AA04348C4C3CD9DA27BC907066C344DD7B231AEB57849743034921D3EC0A9FE9B1DAF1653AF85"
         }
       }
     ],
@@ -21,6 +21,13 @@
         "signingConfig": "default",
         "compatibleSdkVersion": "5.0.2(14)",
         "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        },
+        "targetSdkVersion": "5.0.2(14)",
         "buildOption": {
           "strictMode": {
             "caseSensitiveCheck": true,

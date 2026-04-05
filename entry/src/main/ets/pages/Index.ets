@@ -21,7 +21,8 @@ import promptAction from '@ohos.promptAction';
 import geoLocationManager from '@ohos.geoLocationManager';
 import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
 import { common } from '@kit.AbilityKit';
-
+import { getSensorData, controlHardware } from '../../common/api/HttpApi';
+import  {DataAnalysisPage} from './DataAnalysis';
 import type { PermissionRequestResult } from '@ohos.abilityAccessCtrl';
 type Context = common.UIAbilityContext;
 
@@ -145,8 +146,32 @@ struct homepage {
   @State showGlobalHistory: boolean = false; // true=全局，false=当前农田
   @State showRemoteControl: boolean = false;
 
+  // ========== 后端硬件控制函数 ==========
+  // 打开 LED1
+  async openLED1() {
+    await controlHardware({ led1: 5, led2: 0, led3: 0, spray: 0 });
+    promptAction.showToast({ message: "LED1 已开启" });
+  }
 
+  // 关闭 LED1
+  async closeLED1() {
+    await controlHardware({ led1: 0, led2: 0, led3: 0, spray: 0 });
+    promptAction.showToast({ message: "LED1 已关闭" });
+  }
+
+  // 打开喷雾
+  async openSpray() {
+    await controlHardware({ led1: 0, led2: 0, led3: 0, spray: 5 });
+    promptAction.showToast({ message: "喷雾已开启" });
+  }
+
+  // 关闭喷雾
+  async closeSpray() {
+    await controlHardware({ led1: 0, led2: 0, led3: 0, spray: 0 });
+    promptAction.showToast({ message: "喷雾已关闭" });
+  }
   async aboutToAppear() {
+    this.requestLocation()
     this.localAddr = {
       family: 1,
       port: 8889,
@@ -176,7 +201,16 @@ struct homepage {
         await _IoTad.get_data()
         await this.new_analyze_data(DATA_new)
         Data_Id_me = Data_id_yun
+        try {
+          let sensorData = await getSensorData();
+          this.temp = sensorData.temperature.toString();
+          this.humi = sensorData.humidity.toString();
+          this.co2 = sensorData.co2.toString();
 
+          promptAction.showToast({ message: "✅ 后端数据加载成功" });
+        } catch (err) {
+          promptAction.showToast({ message: "❌ 连接后端失败" });
+        }
       }, 1000)
 
       setInterval(async () => {
@@ -187,6 +221,7 @@ struct homepage {
       }, 1000)
     }, 100)
     this.setGreetingByTime();
+
   }
 
   async judge(temp?: number, humi?: number, co2?: number) {
@@ -282,7 +317,59 @@ struct homepage {
       hilog.info(DOMAIN_NUMBER, TAG, 'Succeeded in publishing notification.');
     });
   }
+  // ========== 定位功能 ==========
+  async requestLocation() {
+    const permissions: Array<Permissions> = ['ohos.permission.LOCATION', 'ohos.permission.APPROXIMATELY_LOCATION'];
+    const atManager = abilityAccessCtrl.createAtManager();
+    try {
+      const result = await atManager.requestPermissionsFromUser(getContext(this) as common.UIAbilityContext, permissions);
+      const granted = result.authResults.every(r => r === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED);
+      if (granted) {
+        this.getCurrentLocation();
+      } else {
+        this.locationText = '授权失败，无法获取位置';
+      }
+    } catch (err) {
+      console.error('权限请求异常', err);
+      this.locationText = '权限请求异常';
+    }
+  }
 
+  async getCurrentLocation() {
+    if (!geoLocationManager.isLocationEnabled()) {
+      this.locationText = '请前往系统设置开启位置服务';
+      return;
+    }
+
+    try {
+      const location = await geoLocationManager.getCurrentLocation({
+        timeoutMs: 10000
+      });
+      this.locationText = `正在获取地址`;
+      // 可选：调用逆地理编码获取地址
+      this.getAddress(location.latitude, location.longitude);
+    } catch (err) {
+      console.error('获取位置失败', err);
+      this.locationText = '获取位置失败';
+    }
+  }
+
+  async getAddress(lat: number, lng: number) {
+      console.info('开始逆地理编码，坐标：', lat, lng);
+    const reverseRequest: geoLocationManager.ReverseGeoCodeRequest = {
+      latitude: lat,
+      longitude: lng,
+      maxItems: 1
+    };
+    try {
+      const result = await geoLocationManager.getAddressesFromLocation(reverseRequest);
+      if (result && result.length > 0) {
+        this.locationText = ` ${result[0].placeName}`;
+      }
+    } catch (err) {
+      console.error('逆地理编码失败', err);
+    }
+  }
   analyze_data(data: string) {
     let arr: string[] = data.split("/")
     for (let item of arr) {
@@ -774,7 +861,7 @@ struct homepage {
                 Text("暂无预警记录")
                   .fontSize(16)
                   .fontColor("#999")
-                  .margin({ top: 30 });
+                 .margin({ top: 0 });
               } else {
                 ForEach(this.currentFarmWarnHistory? this.globalWarnHistory : this.currentFarmWarnHistory,(item: WarnHistoryItem) => {
                   Column() {
@@ -797,12 +884,16 @@ struct homepage {
               }
             }
             .width("100%")
+            //.padding({ left:10, right:10, bottom:10, top:0 });
             .padding(10);
+
           }
-          .layoutWeight(1);
+          //.flexGrow(1)
+          //.height("100%")
+          //.layoutWeight(1);
         }
         .width("100%")
-        .height("90%")
+        .height("100%")
         .backgroundColor("#f5f5f5")
         .padding(10);
       }
@@ -850,119 +941,126 @@ export struct RemoteControlPage {
 
 
   build() {
-  Stack(){
-    Column() {
-      Row() {
-        Text("< 返回")
-          .fontSize(16)
-          .fontColor("#007AFF")
+    Stack(){
+      Column() {
+        Row() {
+          Text("< 返回")
+            .fontSize(16)
+            .fontColor("#007AFF")
+            .onClick(() => {
+              this.showPage = false;
+            })
+          Blank()
+          Text("远程控制")
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+          Blank()
+        }
+        .width("100%")
+        .padding(12)
+        .backgroundColor(Color.White)
+        Column() {
+          Row({ space: 15 }) {
+            if (this.farm?.avatar) {
+              Image(this.farm.avatar)
+                .width(100)
+                .height(100)
+                .borderRadius(10)
+                .objectFit(ImageFit.Cover)
+            } else {
+              Text("农田图片")
+                .width(100)
+                .height(90)
+                .backgroundColor("#eee")
+                .textAlign(TextAlign.Center)
+            }
+
+            Column({ space: 6 }) {
+              Text(this.farm?.name || "未知农田")
+                .fontSize(18)
+                .fontWeight(FontWeight.Bold)
+
+              Text("面积：8 亩")
+                .fontSize(12)
+                .fontColor("#666")
+              Text("种类：普通品种")
+                .fontSize(12)
+                .fontColor("#666")
+              Text("位置：一号园区")
+                .fontSize(12)
+                .fontColor("#666")
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width("85%")
+          .padding(12)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ top: 100,bottom:5 })
+          .shadow(10)        // 阴影：让卡片从背景里“浮”出来
+          .borderWidth(1)    // 轻微边框：强化边缘，绝对不混色
+          .borderColor('#f0f0f0')
+        }
+        .width("95%")
+        .padding(15)
+        .backgroundColor("#fff8f6f6") // 背景颜色（浅灰，可自定义）
+        .borderRadius(16)
+        .margin({ top: 10,bottom:10})
+        .height(240)
+        Row({ space: 10 }) {
+          this.DataCard("温度", this.temp + "℃", "#ff6b6b")
+          this.DataCard("湿度", this.humi + "%", "#4dabf7")
+          this.DataCard("CO₂", this.co2 + "ppm", "#9775fa")
+        }
+        .width("90%")
+        .justifyContent(FlexAlign.SpaceBetween)
+        .margin({ top: 15, bottom: 10 })
+
+        Button("+ 添加设备")
+          .width("90%")
+          .height(48)
+          .fontSize(12)
+          .backgroundColor("#4A90E2")
+          .fontColor(Color.White)
+          .borderRadius(6)
+          .margin({ top: 5, bottom: 5 })
           .onClick(() => {
-            this.showPage = false;
+            this.currentFarm = this.farm;
+            this.showMyList = true;
           })
-        Blank()
-        Text("远程控制")
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-        Blank()
+        Scroll() {
+          Column({ space: 12 }) {
+            if (this.farm?.device_s.length === 0) {
+              Text("暂无设备，点击上方添加设备")
+                .fontSize(16)
+                .fontColor("#999")
+                .margin({ top: 10 });
+            }
+
+            ForEach(this.farm?.device_s || [], (item: Device) => {
+              this.ControlItem(item.name, item.switch === 1);
+            })
+          }
+          .width("90%")
+          .padding(0)
+          .margin({ top: 0 })
+        }
+        .layoutWeight(1)
       }
       .width("100%")
-      .padding(12)
-      .backgroundColor(Color.White)
-
-      Row({ space: 15 }) {
-        if (this.farm?.avatar) {
-          Image(this.farm.avatar)
-            .width(100)
-            .height(100)
-            .borderRadius(10)
-            .objectFit(ImageFit.Cover)
-        } else {
-          Text("农田图片")
-            .width(100)
-            .height(100)
-            .backgroundColor("#eee")
-            .textAlign(TextAlign.Center)
-        }
-
-        Column({ space: 6 }) {
-          Text(this.farm?.name || "未知农田")
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-
-          Text("面积：8 亩")
-            .fontSize(14)
-            .fontColor("#666")
-          Text("种类：普通品种")
-            .fontSize(14)
-            .fontColor("#666")
-          Text("位置：一号园区")
-            .fontSize(14)
-            .fontColor("#666")
-        }
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width("90%")
-      .padding(12)
-      .backgroundColor(Color.White)
-      .borderRadius(12)
-      .margin({ top: 10 })
-
-
-      Row({ space: 10 }) {
-        this.DataCard("温度", this.temp + "℃", "#ff6b6b")
-        this.DataCard("湿度", this.humi + "%", "#4dabf7")
-        this.DataCard("CO₂", this.co2 + "ppm", "#9775fa")
-      }
-      .width("90%")
-      .justifyContent(FlexAlign.SpaceBetween)
-      .margin({ top: 15, bottom: 10 })
-
-      Button("+ 添加设备")
-        .width("90%")
-        .height(48)
-        .fontSize(12)
-        .backgroundColor("#4A90E2")
-        .fontColor(Color.White)
-        .borderRadius(6)
-        .margin({ top: 5, bottom: 5 })
-        .onClick(() => {
-          this.currentFarm = this.farm;
-          this.showMyList = true;
+      .height("100%")
+      .backgroundColor("#F5F5F5")
+      if (this.showMyList && this.currentFarm) {
+        displayFarmland({
+          currentFarm: this.currentFarm,
+          is_sleep: $is_sleep,
+          showList: $showMyList
         })
-      Scroll() {
-        Column({ space: 12 }) {
-          if (this.farm?.device_s.length === 0) {
-            Text("暂无设备，点击上方添加设备")
-              .fontSize(16)
-              .fontColor("#999")
-              .margin({ top: 10 });
-          }
-
-          ForEach(this.farm?.device_s || [], (item: Device) => {
-            this.ControlItem(item.name, item.switch === 1);
-          })
-        }
-        .width("90%")
-        .padding(0)
-        .margin({ top: 0 })
       }
-      .layoutWeight(1)
+
+
     }
-    .width("100%")
-    .height("100%")
-    .backgroundColor("#F5F5F5")
-    if (this.showMyList && this.currentFarm) {
-      displayFarmland({
-        currentFarm: this.currentFarm,
-        is_sleep: $is_sleep,
-        showList: $showMyList
-      })
-    }
-
-
   }
-  }
-
   @Builder
   DataCard(title: string, value: string, color: string) {
     Column({ space: 6 }) {
@@ -989,6 +1087,15 @@ export struct RemoteControlPage {
         .fontSize(16)
       Blank()
       Toggle({ type: ToggleType.Switch, isOn: isOn })
+        .onChange((value) => {
+          if (value) {
+            controlHardware({ led1: 5, led2: 0, led3: 0, spray: 0 });
+            promptAction.showToast({ message: "✅ 已开启：" + name });
+          } else {
+            controlHardware({ led1: 0, led2: 0, led3: 0, spray: 0 });
+            promptAction.showToast({ message: "✅ 已关闭：" + name });
+          }
+        })
     }
     .width("100%")
     .padding(14)
@@ -1649,7 +1756,23 @@ struct Index {
     .backgroundImage(num == this.selectnumber ? $r('app.media.farm_bg') : $r('app.media.bottom_bg2'))
     .backgroundImageSize(ImageSize.Cover)
   }
+  @Builder
+  MyBuilder_analysis(title:string,num:number){
+    Column(){
+      Row().width("100%").height(15)
+      Image($r("app.media.user"))
+        .height(num==this.selectnumber?20:10)
+        .width(num==this.selectnumber?20:10)
+        .fillColor(num==this.selectnumber?'#4A90E2':Color.White)
 
+      Text(title)
+        .fontColor(num==this.selectnumber?'#4A90E2':Color.White)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundImage(num == this.selectnumber ? $r('app.media.farm_bg') : $r('app.media.bottom_bg2'))
+    .backgroundImageSize(ImageSize.Cover)
+  }
   build() {
     Stack() {
       Column(){
@@ -1659,15 +1782,18 @@ struct Index {
             homepage({is_warn:this.is_warn,warn_data:this.warn_data,arr_farmland:this.arr_farmland})
           }
           .tabBar(this.MyBuilder_home("农场总览",0))
-
+          TabContent(){
+            DataAnalysisPage()
+          }
+          .tabBar(this.MyBuilder_analysis("数据分析",1))
           TabContent(){
             FarmScenePage({arr_farmland:this.arr_farmland})
           }
-          .tabBar(this.MyBuilder_add("智能场景",1))
+          .tabBar(this.MyBuilder_add("智能场景",2))
 
           TabContent(){
             userpage()
-          }.tabBar(this.MyBuilder_user("个人中心",2))
+          }.tabBar(this.MyBuilder_user("个人中心",3))
 
         }
         .width('100%')

@@ -8,6 +8,8 @@
     "pages/get_device",
     "pages/scan_devices",
     "pages/Search_devices",
-    "pages/test_Page"
-  ,"pages/analyze"]
+    "pages/test_Page",
+     "pages/analyze",
+    "pages/FarmMonitor",
+    "pages/FarmHistoryPhotos"]
 }

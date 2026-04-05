@@ -1,7 +1,7 @@
 import { Device, farmland } from "../tool/classes";
 import { ControlTemp } from "../tool/component";
 import { _IoTad } from "./scan_devices";
-
+import router from '@ohos.router';
 
 interface EnvironmentItemParams {
   icon: Resource;
@@ -183,7 +183,7 @@ export struct FarmScenePage {
       }
       .edgeEffect(EdgeEffect.Spring);
 
-      // 弹窗逻辑（完全不变）
+      // 弹窗逻辑
       if (this.isSeedlingSceneShow || this.isIrrigationSceneShow) {
         Column() {
           Blank()
@@ -216,8 +216,6 @@ export struct FarmScenePage {
     }
     .height('100%');
   }
-
-  // 系统内置图标，不依赖你本地资源
   private getSystemIcon(index: number): Resource {
     switch (index) {
       case 0:  return $r('app.media._robot');
@@ -226,8 +224,6 @@ export struct FarmScenePage {
       default: return $r('app.media._robot');
     }
   }
-
-  // 以下逻辑完全没动
   private handleSceneClick(index: number): void {
     this.currentScene = this.sceneList[index];
     animateTo({ duration: 300 }, () => {
@@ -475,6 +471,9 @@ struct IrrigationScene {
   }
 
   private viewCamera(): void {
+    router.pushUrl({
+      url: "pages/FarmMonitor"
+    });
   }
 
   private autoIrrigation(): void {

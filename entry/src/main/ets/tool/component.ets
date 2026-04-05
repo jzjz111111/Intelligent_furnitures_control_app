@@ -1,26 +1,23 @@
-import { LocalStoraga } from "../data/LocalStorage";
+import { LocalStorage } from "../data/LocalStorage";
 import { FarmlandDatabase } from "../data/RdbStorage";
 import { tcp } from "../pages/Index";
 import { API_DeepSeek } from "../pages/OpenAI_Page";
 import { _IoTad } from "../pages/scan_devices";
-//import { tcp, udp } from "../pages/Index";
 import {  Device, farmland } from "./classes";
 import { router } from "@kit.ArkUI";
+import { face_cam } from "../pages/face_cma";
 import { preferences } from '@kit.ArkData';
 import cryptoFramework from '@ohos.security.cryptoFramework';
 import common from '@ohos.app.ability.common';
 import util from '@ohos.util';
 import picker from '@ohos.file.picker';
-
-
-
+import { ThemeColors } from '../utils/theme';
 
 let new_arr_farmlands:farmland[]
 let new_arr_f:Device[]
 
 let Farmland_db:FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 let new_f_R_Id:number
-
 
 @Component
 export struct device_long {
@@ -50,11 +47,13 @@ export struct device_long {
               y:50,
               x:20
             })
+            .fontColor(ThemeColors.textPrimary)
           Text(this.o_f.type_id.toString())
             .position({
               y:50,
               x:200
             })
+            .fontColor(ThemeColors.textSecondary)
         }
         Row(){
           Button('删除')
@@ -70,6 +69,8 @@ export struct device_long {
             })
             .padding(5)
             .width(100)
+            .backgroundColor(ThemeColors.danger)
+            .fontColor(ThemeColors.bgCard)
           Button('返回')
             .onClick(() => {
               this.is_show_d = false
@@ -78,6 +79,8 @@ export struct device_long {
             })
             .padding(5)
             .width(100)
+            .backgroundColor(ThemeColors.secondary)
+            .fontColor(ThemeColors.bgCard)
         }.height(100)
         .width('100%')
         .justifyContent(FlexAlign.SpaceAround)
@@ -87,7 +90,7 @@ export struct device_long {
       .height("55%")
       .width('100%')
       .borderRadius(20)
-      .backgroundColor(Color.White)
+      .backgroundColor(ThemeColors.bgCard)
       .justifyContent(FlexAlign.End)
       if(this.o_f.type_id <2000 ){
         Text("亮度："+this.Light_number.toString())
@@ -95,6 +98,7 @@ export struct device_long {
             y:250,
             x:20
           })
+          .fontColor(ThemeColors.textPrimary)
         if(this.o_f.lighting != 0){
           Slider({value:this.arr_f[this.index_d].lighting,max:10,min:1})
             .width('90%')
@@ -113,6 +117,9 @@ export struct device_long {
 
               //udp.sendLED_chang(value)
             })
+            .blockColor(ThemeColors.accent)
+            .trackColor(ThemeColors.borderLight)
+            .selectedColor(ThemeColors.primary)
         }
       }
       if(this.o_f.type_id >2999 && this.o_f.type_id<4000){
@@ -127,7 +134,7 @@ export struct device_long {
 
     .height(this._height)
     .width('100%')
-    .backgroundColor('#9c000000')
+    .backgroundColor('rgba(13, 51, 40, 0.65)')
 
   }
 }
@@ -157,11 +164,13 @@ struct device_edit{
               y:50,
               x:20
             })
+            .fontColor(ThemeColors.textPrimary)
           Text(this.o_f.type_id.toString())
             .position({
               y:50,
               x:200
             })
+            .fontColor(ThemeColors.textSecondary)
 
         }
         Row(){
@@ -172,6 +181,8 @@ struct device_edit{
             })
             .padding(5)
             .width(100)
+            .backgroundColor(ThemeColors.secondary)
+            .fontColor(ThemeColors.bgCard)
         }.height(100)
         .width('100%')
         .justifyContent(FlexAlign.SpaceAround)
@@ -181,7 +192,7 @@ struct device_edit{
       .height("55%")
       .width('100%')
       .borderRadius(20)
-      .backgroundColor(Color.White)
+      .backgroundColor(ThemeColors.bgCard)
       .justifyContent(FlexAlign.End)
       if(this.o_f.type_id <2000 ){
         Text("亮度："+this.Light_number.toString())
@@ -189,6 +200,7 @@ struct device_edit{
             y:250,
             x:20
           })
+          .fontColor(ThemeColors.textPrimary)
         if(this.o_f.lighting != 0){
           Slider({value:this.device.lighting,max:10,min:1})
             .width('90%')
@@ -205,6 +217,9 @@ struct device_edit{
               this.o_f = this.device
               //udp.sendLED_chang(value)
             })
+            .blockColor(ThemeColors.accent)
+            .trackColor(ThemeColors.borderLight)
+            .selectedColor(ThemeColors.primary)
         }
       }
       if(this.o_f.type_id >2999 && this.o_f.type_id<4000){
@@ -215,22 +230,24 @@ struct device_edit{
                 y:50,
                 x:20
               })
+              .fontColor(ThemeColors.textPrimary)
             Text("id:"+this.o_f.type_id.toString())
               .position({
                 y:50,
                 x:200
               })
+              .fontColor(ThemeColors.textSecondary)
 
           }
           my_temCon_edit({is_show:this.is_show_d,item:this.device})
         }.width("100%").height('100%')
-        .backgroundColor('#e0efff')
+        .backgroundColor(ThemeColors.primaryLight)
 
       }
     }
     .height(this._height)
     .width('100%')
-    .backgroundColor('#9c000000')
+    .backgroundColor('rgba(13, 51, 40, 0.65)')
 
   }
 }
@@ -255,6 +272,9 @@ export struct add_device_page {
           .bindMenu(this.DeviceMenu)
           .width(300)
           .position({ y: 50 })
+          .backgroundColor(ThemeColors.bgGlass)
+          .fontColor(ThemeColors.textPrimary)
+          .placeholderColor(ThemeColors.textTertiary)
 
         TextInput({ placeholder: '输入设备ID' })
           .onChange((value) => {
@@ -262,10 +282,13 @@ export struct add_device_page {
           })
           .width(300)
           .position({ y: 100 })
+          .backgroundColor(ThemeColors.bgGlass)
+          .fontColor(ThemeColors.textPrimary)
+          .placeholderColor(ThemeColors.textTertiary)
 
         Button('完成')
-          .backgroundColor('#00ffffff')
-          .fontColor('#ff2f2f2f')
+          .backgroundColor(ThemeColors.primary)
+          .fontColor(ThemeColors.bgCard)
           .onClick(async () => {
             if (this.dev_name != '' && this.type != 0) {
               let success = await Farmland_db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
@@ -293,7 +316,7 @@ export struct add_device_page {
     }
     .height(this._height)
     .width('100%')
-    .backgroundColor('#9c000000')
+    .backgroundColor('rgba(13, 51, 40, 0.65)')
   }
 
   @Builder
@@ -302,15 +325,22 @@ export struct add_device_page {
       MenuItem({ content: 'LED' }).onClick(() => {
         this.dev_name = 'LED'
       })
+      // 删除 .fontColor(ThemeColors.textPrimary)
+
       MenuItem({ content: '水阀' }).onClick(() => {
         this.dev_name = '水阀'
       })
+      // 删除 .fontColor(ThemeColors.textPrimary)
+
       MenuItem({ content: '温控设备' }).onClick(() => {
         this.dev_name = '温控设备'
       })
+      // 删除 .fontColor(ThemeColors.textPrimary)
     }
+    .backgroundColor(ThemeColors.bgCard)
   }
 }
+
 @Component
 export struct add_farmland_page {
   @Link arr: farmland[]
@@ -334,10 +364,10 @@ export struct add_farmland_page {
           } else {
             // 没选头像，显示灰色圆形 + 文字
             Circle({ width: 90, height: 90 })
-              .fill('#EFEFEF')
+              .fill(ThemeColors.borderLight)
             Text("点击选头像")
               .fontSize(13)
-              .fontColor('#666')
+              .fontColor(ThemeColors.textSecondary)
           }
         }
         .onClick(() => {
@@ -349,10 +379,13 @@ export struct add_farmland_page {
           .onChange((value) => {
             this.dev_name = value
           })
+          .backgroundColor(ThemeColors.bgGlass)
+          .fontColor(ThemeColors.textPrimary)
+          .placeholderColor(ThemeColors.textTertiary)
         Row(){
           Button('完成')
-            .backgroundColor('#00ffffff')
-            .fontColor("#ff2f2f2f")
+            .backgroundColor(ThemeColors.primary)
+            .fontColor(ThemeColors.bgCard)
             .onClick(async () => {
               if (this.dev_name != '') {
                 let success = await Farmland_db.insertFarmland(new farmland(this.dev_name, [],this.avatarUri))
@@ -372,8 +405,8 @@ export struct add_farmland_page {
             .padding(5)
             .width(100)
           Button('返回')
-            .backgroundColor('#00ffffff')
-            .fontColor("#ff2f2f2f")
+            .backgroundColor(ThemeColors.secondary)
+            .fontColor(ThemeColors.bgCard)
             .onClick(() => {
               this.is_show = false
             })
@@ -394,8 +427,7 @@ export struct add_farmland_page {
 
     .height('100%')
     .width('100%')
-    //.backgroundColor(Color.White)
-    .backgroundColor('#9c000000')
+    .backgroundColor('rgba(13, 51, 40, 0.65)')
 
   }
   // 打开相册选择头像
@@ -424,6 +456,7 @@ export struct add_farmland_page {
     }
   }
 }
+
 @Component
 export struct myList {
 
@@ -435,13 +468,9 @@ export struct myList {
   @State show_add: boolean = false
   @Prop index:number
   @State is_show_d:boolean = false
-  //@State f_name:string = ''
-  //@State f_type:number = 0
-  //@State f_switch:number = 0
   @Link is_sleep:boolean
   @State index_d:number = 0
   @State _height:string = "0%"
-  //@State _brightness:number = 0
   @Link showList: boolean;
   @State this_d:Device = new Device('',0,1)
   @State is_change:boolean = true
@@ -451,7 +480,6 @@ export struct myList {
   }
   aboutToDisappear(): void {
     this.farmland1.device_s = this.arr_dev
-    //this.farmland1.device_s = this.farmland1.device_s.slice()
     this.arr_dev = [...this.arr_dev]
   }
   build() {
@@ -462,7 +490,6 @@ export struct myList {
             Row(){
               myRow({ item1: item ,is_sleep:this.is_sleep ,is_chang:this.is_change})
             }.gesture(
-              // 绑定可以重复触发的LongPressGesture
               LongPressGesture({ repeat: true ,duration :300 })
                 .onAction((event: GestureEvent|undefined) => {
                   if(event){
@@ -483,16 +510,6 @@ export struct myList {
             .onClick(()=>{
               if(item.type_id<2000){
                 if(item.type_id>1100){
-                  /*console.log("感应补光灯111")
-                  setTimeout(()=>{
-                    this.arr_dev[index] = new Device(item.name,1,item.type_id)
-                    this.arr_dev[index].lighting = 5000
-                    setTimeout(()=>{
-                      this.arr_dev[index] = new Device(item.name,0,item.type_id)
-                      this.arr_dev[index].lighting = 0
-                    },2000)
-                  },2000)*/
-
                 }else{
                   if(item.switch){
                     this.arr_dev[index] = new Device(item.name,0,item.type_id)
@@ -543,7 +560,8 @@ export struct myList {
                 })
 
               })
-              .backgroundColor("#00879fa0")
+              .backgroundColor(ThemeColors.primary)
+              .fontColor(ThemeColors.bgCard)
               .height('100%')
               .width('100%')
           }
@@ -551,15 +569,15 @@ export struct myList {
           .width("90%")
           .padding(10)
           .margin(12)
-          .backgroundColor("#cbb6c3f5")
+          .backgroundColor(ThemeColors.primaryLight)
           .borderRadius(20);
         }
         ListItem() {
           Button("完成")
             .width("90%")
             .height(50)
-            .backgroundColor("#4A90E2")
-            .fontColor(Color.White)
+            .backgroundColor(ThemeColors.primary)
+            .fontColor(ThemeColors.bgCard)
             .fontSize(18)
             .borderRadius(12)
             .onClick(() => {
@@ -600,8 +618,6 @@ export struct myList {
 
 @Component
 export struct myRow {
-  //@Prop item1: Device
-
   @State item1: Device = new Device("w", 0,0)
   @State is_clicknum: number = 0;
   @Prop is_sleep:boolean
@@ -612,39 +628,40 @@ export struct myRow {
       Stack(){
         Row() {
           Text(this.item1.name)
+            .fontColor(ThemeColors.textPrimary)
           if(this.item1.type_id<999){
 
           }else if(this.item1.type_id<1999){
             Image($r('app.media.water_valve6'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.techBlue);
           }else if(this.item1.type_id<2999){
             Image($r('app.media._water_valve'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.techBlue);
           }else if(this.item1.type_id<3999){
             Image($r('app.media._temperature_control_device'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.accent);
           }else if(this.item1.type_id<4999){
             Image($r('app.media._fan'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.techBlue);
           }else if(this.item1.type_id<5999){
             Image($r('app.media._icebox'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.techBlue);
           }
           else if(this.item1.type_id<6999){
             Image($r('app.media._robot'))
               .height(20)
               .width(20)
-              .fillColor('rgb(70, 100, 180)');
+              .fillColor(ThemeColors.techBlue);
           }
 
         }
@@ -657,7 +674,7 @@ export struct myRow {
         .backgroundImageSize(ImageSize.Cover)
         .borderRadius(20)
         .borderWidth(2)
-        .borderColor(this.item1.switch? 'rgb(70, 100, 180)' : "#009caeca");
+        .borderColor(this.item1.switch? ThemeColors.accent : ThemeColors.borderLight);
       }
 
 
@@ -665,10 +682,11 @@ export struct myRow {
       Stack(){
         Row() {
           Text(this.item1.name)
+            .fontColor(ThemeColors.textPrimary)
           Image($r('app.media.water_valve6'))
             .height(20)
             .width(20)
-            .fillColor('rgb(70, 100, 180)');
+            .fillColor(ThemeColors.techBlue);
         }
         .justifyContent(FlexAlign.SpaceAround)
         .height(100)
@@ -679,7 +697,7 @@ export struct myRow {
         .backgroundImageSize(ImageSize.Cover)
         .borderRadius(20)
         .borderWidth(2)
-        .borderColor(this.item1.switch? 'rgb(70, 100, 180)' :"#009caeca" );
+        .borderColor(this.item1.switch? ThemeColors.accent :ThemeColors.borderLight );
       }
     }
   }
@@ -703,7 +721,7 @@ export struct displayFarmland {
       Column()
         .width("100%")
         .height("100%")
-        .backgroundColor("#99000000")
+        .backgroundColor('rgba(13, 51, 40, 0.45)')
         .onClick(() => {
           this.showList = false;
         })
@@ -716,7 +734,7 @@ export struct displayFarmland {
       })
         .width("90%")
         .height("80%")
-        .backgroundColor(Color.White)
+        .backgroundColor(ThemeColors.bgCard)
         .borderRadius(20)
     }
     .width("100%")
@@ -724,6 +742,170 @@ export struct displayFarmland {
   }
 }
 
+@Component
+export struct FarmlandOverview {
+  @Link arr_farmland: farmland[]
+  @Link is_show_lights: boolean
+  @Link is_show_temperature_control_device: boolean
+  @Link is_show_robot: boolean
+  @Link is_show_waterValve: boolean
+  @Link is_show_dan: boolean
+  @State edit_f: Device = new Device("", 0, 0)
+
+  build() {
+    Stack() {
+      Column() {
+        Row() {
+          Text("设备总控")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(ThemeColors.bgCard)
+        }
+        .width('100%')
+        .height(60)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor(ThemeColors.primary)
+        .padding({ top: 10 })
+
+        Scroll() {
+          Grid() {
+            ForEach(this.getDeviceList(), (item: DeviceControlItem) => {
+              GridItem() {
+                this.DeviceCard(item)
+              }
+            })
+            GridItem() {
+              Column() {
+                Text("+")
+                  .fontSize(48)
+                  .fontColor(ThemeColors.textTertiary)
+                Text("添加设备")
+                  .fontSize(14)
+                  .fontColor(ThemeColors.textSecondary)
+              }
+              .width('100%')
+              .height(160)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor(ThemeColors.bgPrimary)
+              .borderRadius(16)
+              .borderWidth(1)
+              .borderColor(ThemeColors.borderLight)
+            }
+          }
+          .columnsTemplate('1fr 1fr')
+          .columnsGap(16)
+          .rowsGap(16)
+          .width('100%')
+          .padding(16)
+        }
+        .width('100%')
+        .flexGrow(1)
+        .backgroundColor(ThemeColors.bgPrimary)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(ThemeColors.bgPrimary)
+
+      if (this.is_show_lights) {
+        ControlLights({ arr_farmland: this.arr_farmland, is_show: this.is_show_lights })
+      }
+      if (this.is_show_temperature_control_device) {
+        ControlTemp({ arr_farmland: this.arr_farmland, is_show: this.is_show_temperature_control_device })
+      }
+      if (this.is_show_waterValve) {
+        ControlWaterValve({ arr_farmland: this.arr_farmland, is_show: this.is_show_waterValve });
+      }
+      if (this.is_show_robot) {
+        face_cam({ is_show: this.is_show_robot })
+      }
+      if (this.is_show_dan) {
+        ControlFan({ arr_farmland: this.arr_farmland, is_show: this.is_show_dan })
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  DeviceCard(item: DeviceControlItem) {
+    Column({ space: 12 }) {
+      Image(item.icon)
+        .width(48)
+        .height(48)
+        .fillColor(item.color)
+        .margin({ top: 16 })
+      Text(item.title)
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(ThemeColors.textPrimary)
+      Text(item.desc)
+        .fontSize(12)
+        .fontColor(ThemeColors.textSecondary)
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(160)
+    .justifyContent(FlexAlign.Start)
+    .padding({ left: 16, right: 16, bottom: 16 })
+    .backgroundColor(ThemeColors.bgCard)
+    .borderRadius(16)
+    .shadow({
+      color: ThemeColors.shadowDark,
+      radius: 8,
+      offsetX: 0,
+      offsetY: 2
+    })
+    .onClick(item.onClick)
+  }
+
+  getDeviceList(): DeviceControlItem[] {
+    return [
+      {
+        title: "补光灯光控制",
+        desc: "调节棚内光照强度",
+        icon: $r("app.media.c_light2"),
+        color: ThemeColors.warning,
+        onClick: () => this.is_show_lights = true
+      },
+      {
+        title: "水阀控制",
+        desc: "控制灌溉水阀开关",
+        icon: $r("app.media.waterValve5"),
+        color: ThemeColors.techBlue,
+        onClick: () => this.is_show_waterValve = true
+      },
+      {
+        title: "门锁",
+        desc: "远程开关棚门",
+        icon: $r("app.media._door"),
+        color: ThemeColors.success,
+        onClick: () => this.is_show_robot = true
+      },
+      {
+        title: "温控设备控制",
+        desc: "调节棚内温度",
+        icon: $r("app.media.ufo2"),
+        color: ThemeColors.danger,
+        onClick: () => this.is_show_temperature_control_device = true
+      },
+      {
+        title: "风扇控制",
+        desc: "调节通风风速",
+        icon: $r("app.media._fan"),
+        color: ThemeColors.secondary,
+        onClick: () => this.is_show_dan = true
+      }
+    ]
+  }
+}
+
+interface DeviceControlItem {
+  title: string
+  desc: string
+  icon: Resource
+  color: string
+  onClick: () => void
+}
 
 @Component
 export  struct ControlLights{
@@ -738,7 +920,7 @@ export  struct ControlLights{
             .width(44)
             .height(44)
             .backgroundColor(Color.Transparent)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
             .onClick(() => this.is_show = false)
@@ -746,7 +928,7 @@ export  struct ControlLights{
           Text("补光灯光控制")
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .flexGrow(1)
             .textAlign(TextAlign.Center)
 
@@ -755,7 +937,7 @@ export  struct ControlLights{
         }
         .width('100%')
         .height(60)
-        .backgroundColor('#10B981')
+        .backgroundColor(ThemeColors.primary)
         .padding({ top: 10 })
         if(this.arr_farmland.length != 0){
           List({ space: 16 }) {
@@ -765,7 +947,7 @@ export  struct ControlLights{
                   Text(item.name)
                     .fontSize(18)
                     .fontWeight(FontWeight.Bold)
-                    .fontColor('#1F2937')
+                    .fontColor(ThemeColors.textPrimary)
                     .width('100%')
                     .textAlign(TextAlign.Start)
                     .margin({ bottom: 12 })
@@ -776,10 +958,10 @@ export  struct ControlLights{
                 }
                 .width('100%')
                 .padding(20)
-                .backgroundColor(Color.White)
+                .backgroundColor(ThemeColors.bgCard)
                 .borderRadius(16)
                 .shadow({
-                  color: '#00000010',
+                  color: ThemeColors.shadowDark,
                   radius: 8,
                   offsetX: 0,
                   offsetY: 4
@@ -795,7 +977,7 @@ export  struct ControlLights{
           Column() {
             Text("还没有农田哦")
               .fontSize(16)
-              .fontColor('#6B7280')
+              .fontColor(ThemeColors.textSecondary)
               .margin({ top: 60 })
           }
           .flexGrow(1)
@@ -803,17 +985,18 @@ export  struct ControlLights{
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F3F4F6')
+      .backgroundColor(ThemeColors.bgPrimary)
     }
     .width('100%')
     .height('100%')
   }
 }
+
 @Component
 struct MySlider{
   @State lighting:number = 0
   @Prop _farmland:farmland
-  @State bulbColor: string = '#333333'
+  @State bulbColor: string = ThemeColors.textPrimary
   aboutToAppear(): void {
     let max = 0
     for (let f of this._farmland.device_s){
@@ -851,13 +1034,15 @@ struct MySlider{
 
         })
         .width(200)
-        .height(20);
+        .height(20)
+        .blockColor(ThemeColors.accent)
+        .trackColor(ThemeColors.borderLight)
+        .selectedColor(ThemeColors.primary);
 
-      // 添加显示百分比的Text组件
-      Text((this.lighting * 10).toFixed(0) + "%") // 转换为百分比
+      Text((this.lighting * 10).toFixed(0) + "%")
         .fontSize(14)
         .margin({ left: 10 })
-        .fontColor('#666666')
+        .fontColor(ThemeColors.textSecondary)
         .width("15%")
 
     }
@@ -866,9 +1051,10 @@ struct MySlider{
 
   calculateBulbColor(lighting: number): string {
     const lightness = lighting / 10;
-    const r = Math.floor(51 + (255 - 51) * lightness);
-    const g = Math.floor(51 + (255 - 51) * lightness);
-    const b = Math.floor(51 + (255 - 51) * lightness);
+    // 修复：移除 (0, 245 - 13) 中的逗号操作符
+    const r = Math.floor(13 + (245 - 13) * lightness);  // 原为 (0, 245 - 13)
+    const g = Math.floor(51 + (245 - 51) * lightness);  // 原为 (0, 245 - 51)
+    const b = Math.floor(40 + (245 - 40) * lightness);  // 原为 (0, 245 - 40)
     return `rgb(${r},${g},${b})`;
   }
 
@@ -903,7 +1089,7 @@ export struct ControlWaterValve {
             .width(44)
             .height(44)
             .backgroundColor(Color.Transparent)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
             .onClick(() => this.is_show = false)
@@ -911,7 +1097,7 @@ export struct ControlWaterValve {
           Text("水阀控制")
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .flexGrow(1)
             .textAlign(TextAlign.Center)
 
@@ -920,7 +1106,7 @@ export struct ControlWaterValve {
         }
         .width('100%')
         .height(60)
-        .backgroundColor('#10B981')
+        .backgroundColor(ThemeColors.primary)
         .padding({ top: 10 })
 
         if (this.arr_farmland.length != 0) {
@@ -932,12 +1118,12 @@ export struct ControlWaterValve {
                     .width('70%')
                     .height('70%')
                     .objectFit(ImageFit.Cover)
-                    .fillColor("#ff8f8f92")
+                    .fillColor(ThemeColors.textTertiary)
 
                   Column() {
                     Text(item?.name)
                       .fontSize(16)
-                      .fontColor('#333')
+                      .fontColor(ThemeColors.textPrimary)
                     Toggle({
                       type: ToggleType.Switch,
                       isOn: this.waterValve_List[index]?.switch === 1
@@ -969,13 +1155,13 @@ export struct ControlWaterValve {
                 }
                 .width('100%')
                 .height(200)
-                .backgroundColor(Color.White)
+                .backgroundColor(ThemeColors.bgCard)
                 .borderRadius(16)
                 .shadow({
                   radius: 8,
                   offsetX: 0,
                   offsetY: 4,
-                  color: "#00000010"
+                  color: ThemeColors.shadowDark
                 })
               }
               .padding({ left: 16, right: 16 })
@@ -986,11 +1172,10 @@ export struct ControlWaterValve {
           .padding({ top: 16, bottom: 30 })
           .flexGrow(1)
         } else {
-          // 空状态
           Column() {
             Text("还没有农田哦")
               .fontSize(16)
-              .fontColor('#6B7280')
+              .fontColor(ThemeColors.textSecondary)
               .margin({ top: 60 })
           }
           .flexGrow(1)
@@ -998,7 +1183,7 @@ export struct ControlWaterValve {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F3F4F6')
+      .backgroundColor(ThemeColors.bgPrimary)
     }
     .width('100%')
     .height('100%')
@@ -1040,7 +1225,7 @@ export struct ControlFan{
             .width(44)
             .height(44)
             .backgroundColor(Color.Transparent)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
             .onClick(() => this.is_show = false)
@@ -1048,7 +1233,7 @@ export struct ControlFan{
           Text("风扇控制")
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .flexGrow(1)
             .textAlign(TextAlign.Center)
 
@@ -1057,7 +1242,7 @@ export struct ControlFan{
         }
         .width('100%')
         .height(60)
-        .backgroundColor('#10B981')
+        .backgroundColor(ThemeColors.primary)
         .padding({ top: 10 })
         if(this.arr_farmland.length != 0){
           List({ space: 16 }) {
@@ -1068,6 +1253,7 @@ export struct ControlFan{
                     Text(item.name)
                       .fontSize(18)
                       .fontWeight(FontWeight.Medium)
+                      .fontColor(ThemeColors.textPrimary)
                     Toggle({ type: ToggleType.Switch, isOn:this.fan_List[index].switch?true:false})
                       .onClick(async ()=>{
                         if(this.fan_List[index].switch){
@@ -1082,13 +1268,13 @@ export struct ControlFan{
                   .width('100%')
                   .padding(20)
                   .justifyContent(FlexAlign.SpaceBetween)
-                  .backgroundColor(Color.White)
+                  .backgroundColor(ThemeColors.bgCard)
                   .borderRadius(16)
                   .shadow({
                     radius: 8,
                     offsetX: 0,
                     offsetY: 4,
-                    color: "#00000010"
+                    color: ThemeColors.shadowDark
                   })
                 }
                 .padding({ left: 16, right: 16 })
@@ -1102,7 +1288,7 @@ export struct ControlFan{
           Column() {
             Text("还没有农田哦")
               .fontSize(16)
-              .fontColor('#6B7280')
+              .fontColor(ThemeColors.textSecondary)
               .margin({ top: 60 })
           }
           .flexGrow(1)
@@ -1110,7 +1296,7 @@ export struct ControlFan{
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F3F4F6')
+      .backgroundColor(ThemeColors.bgPrimary)
     }
     .width('100%')
     .height('100%')
@@ -1129,9 +1315,6 @@ struct show_f{
 
   async aboutToAppear(){
     console.log("f:::11")
-    /*setTimeout(()=>{
-      this.arr.push(new farmland("",[new Device('',1,1002)]))
-    },1000)*/
     setInterval(()=>{
       this.open_List = []
       console.log("f:::11"+JSON.stringify(this.arr))
@@ -1159,15 +1342,15 @@ struct show_f{
               Column(){
                 if(item.type_id<999){
 
-                }else if(item.type_id<2000){//补光补光灯
+                }else if(item.type_id<2000){
 
-                }else if(item.type_id<3000){//水阀
+                }else if(item.type_id<3000){
                   Image($r("app.media._water_valve"))
                     .fillColor(this.select_color(value))
-                }else if(item.type_id<4000){//温控设备
+                }else if(item.type_id<4000){
                   Image($r("app.media._temperature_control_device"))
                     .fillColor(this.select_color(value))
-                }else if(item.type_id<5000){//风扇
+                }else if(item.type_id<5000){
                   Image($r("app.media._fan"))
                     .fillColor(this.select_color(value))
                 }else if(item.type_id<6000){
@@ -1181,11 +1364,13 @@ struct show_f{
               .width(48)
               .borderRadius(24)
               .padding(5)
-              .backgroundColor(Color.White)
+              .backgroundColor(ThemeColors.bgCard)
 
               if(this.is_show_edit_List[value]){
                 Text(item.name)
+                  .fontColor(ThemeColors.textPrimary)
                 Text("id:"+item.type_id)
+                  .fontColor(ThemeColors.textSecondary)
 
               }
               Row().width(50)
@@ -1195,7 +1380,7 @@ struct show_f{
             .height(50)
             .width(this.is_edit_h[value])
             .borderRadius(25)
-            .backgroundColor("#ffc4c4c4")
+            .backgroundColor(ThemeColors.borderLight)
             .onClick(()=>{
               this.is_show_edit_List[value] = !this.is_show_edit_List[value]
               this.f = item
@@ -1218,13 +1403,13 @@ struct show_f{
   }
   select_color(value:number):string{
     if(value%3==0){
-      return"#ff9d7998"
+      return ThemeColors.secondary
     }
     else if(value%3==1){
-      return"#ff8c84a5"
+      return ThemeColors.techBlue
     }
     else{
-      return"#ff828ba4"
+      return ThemeColors.accent
     }
   }
 }
@@ -1239,7 +1424,7 @@ export struct my_DeepSeek{
   @Link _height_AI:string
   @State is_ark:boolean = false
   AI:API_DeepSeek = new API_DeepSeek()
-  localstorage:LocalStoraga = new LocalStoraga("AI")
+  localstorage:LocalStorage = new LocalStorage("AI")
   @State TextList:string[] = []
   async aboutToAppear() {
     if(await this.localstorage.getDate("history") != false){
@@ -1262,7 +1447,7 @@ export struct my_DeepSeek{
   build() {
     Stack({alignContent:Alignment.BottomEnd}){
       Column()
-        .height("100%").width("100%").backgroundColor("#9c000000")
+        .height("100%").width("100%").backgroundColor('rgba(13, 51, 40, 0.45)')
         .onClick(()=>{
           animateTo({duration:500},()=>{
             this._height = "10%"
@@ -1275,12 +1460,11 @@ export struct my_DeepSeek{
           ForEach(this.TextList,(item:string,value)=>{
             ListItem(){
               if(value%2 == 0){
-                //我说的话
                 if(item != "[object Promise]"){
                   Row(){
                     Text(item)
-                      .fontColor(Color.White)
-                      .backgroundColor("#ff5e5eff")
+                      .fontColor(ThemeColors.bgCard)
+                      .backgroundColor(ThemeColors.primary)
                       .borderRadius(10)
                       .padding(10)
                     Column()
@@ -1288,24 +1472,23 @@ export struct my_DeepSeek{
                     Column(){
                       Image($r('app.media.user'))
                         .width("100%").height("100%")
-                        .fillColor("#ff899ce0").size({width:"90%",height:"90%"})
+                        .fillColor(ThemeColors.techBlue).size({width:"90%",height:"90%"})
 
-                    }//我的头像
+                    }
                     .width(50).borderRadius(25).height(50)
                   }.justifyContent(FlexAlign.End)
                   .width("100%").padding(10)
                 }
 
               }else{
-                //Ai的回答
                 Row(){
-                  Column()//ai的头像
+                  Column()
                     .width(50).borderRadius(25).height(50) .backgroundImage($r('app.media.deepseek_icon')).backgroundImageSize(ImageSize.Cover)
                   Column()
                     .width(10)
                   Text(item)
-                    .fontColor(Color.Black)
-                    .backgroundColor("#ffe3e3fc")
+                    .fontColor(ThemeColors.textPrimary)
+                    .backgroundColor(ThemeColors.primaryLight)
                     .width("75%")
                     .borderRadius(10)
                     .padding(10)
@@ -1319,18 +1502,21 @@ export struct my_DeepSeek{
         }.width("100%").height(this._height)
         Row(){
           if(this.is_show){
-            TextInput({placeholder:"请输入问题",text:this.question}).width("80%").height("10%").backgroundColor("#9c8c8c8c")
+            TextInput({placeholder:"请输入问题",text:this.question}).width("80%").height("10%").backgroundColor(ThemeColors.bgGlass)
               .onChange((value)=>{this.question = value})
+              .placeholderColor(ThemeColors.textTertiary)
+              .fontColor(ThemeColors.textPrimary)
 
           }
           if(this.is_ark){
             Progress({ value: 0, total: 100, type: ProgressType.Ring })
-              .width(50).color(Color.White)  .backgroundColor("#ffe3e3fc")
+              .width(50).color(ThemeColors.bgCard)  .backgroundColor(ThemeColors.primaryLight)
               .style({ strokeWidth: 10, status: ProgressStatus.LOADING })
           }
           else{
             Button("提问")
-              .backgroundColor("#ffc2c3f6")
+              .backgroundColor(ThemeColors.primary)
+              .fontColor(ThemeColors.bgCard)
               .onClick(async ()=>{
                 if(this.question != ''){
                   animateTo({duration:200},()=>{
@@ -1360,7 +1546,6 @@ export struct my_DeepSeek{
 
         }.justifyContent(FlexAlign.End).width("100%")
       }.justifyContent(FlexAlign.End).borderRadius({topLeft:20,topRight:20}).backgroundImage($r('app.media.ai_bg1')).backgroundImageSize(ImageSize.Cover)
-      //.animation({duration:200})
     }.width("100%").height(this._height_AI)
 
   }
@@ -1373,15 +1558,15 @@ export struct my_temCon_edit{
   @Link is_show:boolean
   @State selectedMode: 'auto' | 'heat' | 'cool' | 'dry' = 'auto';
   @State tempSetting: number = 26;
-  @State acColor: string = '#42b983';
+  @State acColor: string = ThemeColors.success;
   @State is_chang: boolean = true;
-  @State Color_B:string[] = ['#42b983','#ff6b6b','#4fc0d0','#ffaea68e']
+  @State Color_B:string[] = [ThemeColors.success,ThemeColors.danger,ThemeColors.techBlue,ThemeColors.warning]
   private calculateAcColor(): string {
     switch (this.selectedMode) {
-      case 'heat': return '#ff6b6b';
-      case 'cool': return '#4fc0d0';
-      case 'dry': return '#ffaea68e';
-      default: return '#42b983';
+      case 'heat': return ThemeColors.danger;
+      case 'cool': return ThemeColors.techBlue;
+      case 'dry': return ThemeColors.warning;
+      default: return ThemeColors.success;
     }
   }
   aboutToAppear(): void {
@@ -1404,10 +1589,10 @@ export struct my_temCon_edit{
       Button('返回')
         .onClick(() => this.is_show = false)
         .padding(10)
-        .backgroundColor(Color.White)
+        .backgroundColor(ThemeColors.bgCard)
         .borderWidth(2)
-        .borderColor('#6d9cee')
-        .fontColor('#6d9cee')
+        .borderColor(ThemeColors.primary)
+        .fontColor(ThemeColors.primary)
         .margin(5);
 
 
@@ -1420,10 +1605,10 @@ export struct my_temCon_edit{
               _IoTad.set_temperature_control_device_by_id(this.tempSetting,"on",this.selectedMode == "auto"?"zd":this.selectedMode == "heat"?"zr":this.selectedMode == "cool"?"zl":this.selectedMode == "dry"?"cs":"zd")
             })
             .padding(10)
-            .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : '#e0e0e0')
-            .fontColor(this.selectedMode === mode ? '#e0e0e0':'#6d9cee')
+            .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : ThemeColors.bgPrimary)
+            .fontColor(this.selectedMode === mode ? ThemeColors.bgCard:ThemeColors.primary)
             .borderWidth(2)
-            .borderColor(this.selectedMode === mode ?'#e0e0e0':'#6d9cee')
+            .borderColor(this.selectedMode === mode ?ThemeColors.bgCard:ThemeColors.primary)
             .margin(5);
         });
       }
@@ -1432,7 +1617,8 @@ export struct my_temCon_edit{
       Column() {
         Text(`当前温度: ${this.tempSetting.toFixed(1)}°C`)
           .fontSize(24)
-          .margin(10);
+          .margin(10)
+          .fontColor(ThemeColors.textPrimary);
 
         Row() {
           Button('-')
@@ -1444,10 +1630,11 @@ export struct my_temCon_edit{
               }
             })
             .padding(10)
-            .backgroundColor('#e0e0e0')
-            .margin(5);
+            .backgroundColor(ThemeColors.bgPrimary)
+            .margin(5)
+            .fontColor(ThemeColors.textPrimary);
 
-          this.CustomCircularProgress(); // 直接调用，无需传参
+          this.CustomCircularProgress();
 
           Button('+')
             .onClick(() => {
@@ -1458,19 +1645,20 @@ export struct my_temCon_edit{
               }
             })
             .padding(10)
-            .backgroundColor('#e0e0e0')
-            .margin(5);
+            .backgroundColor(ThemeColors.bgPrimary)
+            .margin(5)
+            .fontColor(ThemeColors.textPrimary);
         }
         .margin(10);
       }
       .height("50%")
       .width("80%")
-      .backgroundColor('#f8f8f8')
+      .backgroundColor(ThemeColors.bgPrimary)
       .borderRadius(15)
       .padding(20);
 
     }
-    .backgroundColor('#e0efff')
+    .backgroundColor(ThemeColors.primaryLight)
     .borderRadius(20)
     .width('100%')
     .height('100%');
@@ -1478,7 +1666,6 @@ export struct my_temCon_edit{
   }
   @Builder
   CustomCircularProgress() {
-    // 直接使用组件内的 @State tempSetting
     Progress({
       value:this.tempSetting - 16,
       total: 14,
@@ -1492,7 +1679,7 @@ export struct my_temCon_edit{
           gapRadius: 0
         }
       } as RingStyleOptions)
-      .color(`rgb(255, ${255 -  Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))}, ${255 -  Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))})`)
+      .color(`rgb(13, ${51 +  Math.min(204, Math.max(0, (this.tempSetting - 16) * 14))}, ${40 +  Math.min(215, Math.max(0, (this.tempSetting - 16) * 15))})`)
       .size({ width: 80, height: 80 })
   }
 
@@ -1505,9 +1692,9 @@ export struct ControlTemp{
   @Link is_show: boolean;
   @Link arr_farmland: farmland[];
   @State selectedMode: 'auto' | 'heat' | 'cool' | 'dry' = 'auto';
-  @State Color_B: string[] = ['#42b983', '#ff6b6b', '#4fc0d0', '#ffaea68e',]
+  @State Color_B: string[] = [ThemeColors.success, ThemeColors.danger, ThemeColors.techBlue, ThemeColors.warning]
   @State tempSetting: number = 26;
-  @State acColor: string = '#42b983';
+  @State acColor: string = ThemeColors.success;
   @State is_chang: boolean = true;
   @State is_exist_list: boolean[] = []
   @State is_open_list: boolean[] = []
@@ -1516,10 +1703,10 @@ export struct ControlTemp{
 
   private calculateAcColor(): string {
     switch (this.selectedMode) {
-      case 'heat': return '#ff6b6b';
-      case 'cool': return '#4fc0d0';
-      case 'dry': return '#ffaea68e';
-      default: return '#42b983';
+      case 'heat': return ThemeColors.danger;
+      case 'cool': return ThemeColors.techBlue;
+      case 'dry': return ThemeColors.warning;
+      default: return ThemeColors.success;
     }
   }
 
@@ -1569,13 +1756,13 @@ export struct ControlTemp{
           Row() {
             Text("<")
               .fontSize(22)
-              .fontColor(Color.White)
+              .fontColor(ThemeColors.bgCard)
               .padding(10)
               .onClick(() => this.is_show = false)
 
             Text("温控设备控制")
               .fontSize(20)
-              .fontColor(Color.White)
+              .fontColor(ThemeColors.bgCard)
               .fontWeight(FontWeight.Bold)
               .flexGrow(1)
               .textAlign(TextAlign.Center)
@@ -1585,7 +1772,7 @@ export struct ControlTemp{
           }
           .width('100%')
           .height(80)
-          .backgroundColor('#10B981')
+          .backgroundColor(ThemeColors.primary)
           .padding({ top: 20 })
           if (this.is_open) {
             Scroll() {
@@ -1599,8 +1786,8 @@ export struct ControlTemp{
                         _IoTad.set_temperature_control_device_by_id(this.tempSetting, "on", this.selectedMode == "auto" ? "zd" : this.selectedMode == "heat" ? "zr" : this.selectedMode == "cool" ? "zl" : this.selectedMode == "dry" ? "cs" : "zd")
                       })
                       .padding(10)
-                      .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : '#ffffff')
-                      .fontColor(this.selectedMode === mode ? '#ffffff' : '#374151')
+                      .backgroundColor(this.selectedMode === mode ? this.Color_B[value] : ThemeColors.bgCard)
+                      .fontColor(this.selectedMode === mode ? ThemeColors.bgCard : ThemeColors.textPrimary)
                       .borderRadius(8)
                       .margin(5);
                   });
@@ -1612,7 +1799,8 @@ export struct ControlTemp{
                   Text(`当前温度: ${this.tempSetting.toFixed(1)}°C`)
                     .fontSize(24)
                     .fontWeight(FontWeight.Medium)
-                    .margin(10);
+                    .margin(10)
+                    .fontColor(ThemeColors.textPrimary);
 
                   Row() {
                     Button('-')
@@ -1624,9 +1812,10 @@ export struct ControlTemp{
                         }
                       })
                       .padding(10)
-                      .backgroundColor('#ffffff')
+                      .backgroundColor(ThemeColors.bgCard)
                       .borderRadius(8)
-                      .margin(5);
+                      .margin(5)
+                      .fontColor(ThemeColors.textPrimary);
 
                     this.CustomCircularProgress();
 
@@ -1639,18 +1828,19 @@ export struct ControlTemp{
                         }
                       })
                       .padding(10)
-                      .backgroundColor('#ffffff')
+                      .backgroundColor(ThemeColors.bgCard)
                       .borderRadius(8)
-                      .margin(5);
+                      .margin(5)
+                      .fontColor(ThemeColors.textPrimary);
                   }
                   .margin(10);
                 }
                 .width("90%")
-                .backgroundColor(Color.White)
+                .backgroundColor(ThemeColors.bgCard)
                 .borderRadius(16)
                 .padding(20)
                 .shadow({
-                  color: '#00000010',
+                  color: ThemeColors.shadowDark,
                   radius: 8,
                   offsetX: 0,
                   offsetY: 4
@@ -1664,6 +1854,7 @@ export struct ControlTemp{
                           Text(item.name)
                             .fontSize(18)
                             .fontWeight(FontWeight.Medium)
+                            .fontColor(ThemeColors.textPrimary)
 
                           Row() {
                             Image($r(`app.media.ac_${this.selectedMode}`))
@@ -1673,7 +1864,8 @@ export struct ControlTemp{
 
                             Text(`${this.tempSetting.toFixed(1)}°C`)
                               .fontSize(20)
-                              .margin({ left: 8, right: 8 });
+                              .margin({ left: 8, right: 8 })
+                              .fontColor(ThemeColors.textPrimary);
 
                             Toggle({
                               type: ToggleType.Switch,
@@ -1696,10 +1888,10 @@ export struct ControlTemp{
                         }
                         .width('100%')
                         .padding(20)
-                        .backgroundColor(Color.White)
+                        .backgroundColor(ThemeColors.bgCard)
                         .borderRadius(16)
                         .shadow({
-                          color: '#00000010',
+                          color: ThemeColors.shadowDark,
                           radius: 8,
                           offsetX: 0,
                           offsetY: 4
@@ -1722,6 +1914,7 @@ export struct ControlTemp{
                       Text(item.name)
                         .fontSize(18)
                         .fontWeight(FontWeight.Medium)
+                        .fontColor(ThemeColors.textPrimary)
 
                       Row() {
                         Image($r(`app.media.ac_${this.selectedMode}`))
@@ -1731,7 +1924,8 @@ export struct ControlTemp{
 
                         Text(`${this.tempSetting.toFixed(1)}°C`)
                           .fontSize(20)
-                          .margin({ left: 8, right: 8 });
+                          .margin({ left: 8, right: 8 })
+                          .fontColor(ThemeColors.textPrimary);
 
                         Toggle({
                           type: ToggleType.Switch,
@@ -1754,10 +1948,10 @@ export struct ControlTemp{
                     }
                     .width('100%')
                     .padding(20)
-                    .backgroundColor(Color.White)
+                    .backgroundColor(ThemeColors.bgCard)
                     .borderRadius(16)
                     .shadow({
-                      color: '#00000010',
+                      color: ThemeColors.shadowDark,
                       radius: 8,
                       offsetX: 0,
                       offsetY: 4
@@ -1773,26 +1967,25 @@ export struct ControlTemp{
         }
         .width('100%')
         .height('100%')
-        .backgroundColor('#F3F4F6')
+        .backgroundColor(ThemeColors.bgPrimary)
       } else {
-        // 空状态
         Column({ space: 20 }) {
           Text("还没有温控设备呢")
             .fontSize(16)
-            .fontColor('#6B7280')
+            .fontColor(ThemeColors.textSecondary)
 
           Button("前往录入")
             .width(160)
             .height(44)
-            .backgroundColor('#10B981')
-            .fontColor(Color.White)
+            .backgroundColor(ThemeColors.primary)
+            .fontColor(ThemeColors.bgCard)
             .borderRadius(12)
             .onClick(() => this.is_show = false)
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-        .backgroundColor('#F3F4F6')
+        .backgroundColor(ThemeColors.bgPrimary)
       }
     }
     .width('100%')
@@ -1814,7 +2007,7 @@ export struct ControlTemp{
           gapRadius: 0
         }
       } as RingStyleOptions)
-      .color(`rgb(255, ${255 - Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))}, ${255 - Math.min(255, Math.max(0, (this.tempSetting - 16) * 18))})`)
+      .color(`rgb(13, ${51 + Math.min(204, Math.max(0, (this.tempSetting - 16) * 14))}, ${40 + Math.min(215, Math.max(0, (this.tempSetting - 16) * 15))})`)
       .size({ width: 80, height: 80 })
   }
 }
@@ -1829,7 +2022,7 @@ export struct AboutProject {
         Row() {
           Text("<")
             .fontSize(22)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .padding(10)
             .onClick(() => {
               if (this.onBack) {
@@ -1839,7 +2032,7 @@ export struct AboutProject {
 
           Text("关于智慧农田")
             .fontSize(20)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .fontWeight(FontWeight.Bold)
             .flexGrow(1)
             .textAlign(TextAlign.Center)
@@ -1849,18 +2042,18 @@ export struct AboutProject {
         }
         .width('100%')
         .height(60)
-        .backgroundColor('#10B981')
+        .backgroundColor(ThemeColors.primary)
         .padding({ top: 10 })
         Column({ space: 15 }) {
           Text("系统介绍")
             .fontSize(28)
             .fontWeight(FontWeight.Bold)
-            .fontColor("#10B981")
+            .fontColor(ThemeColors.primary)
             .margin({ top: 40 })
 
           Text("本系统基于鸿蒙ArkTS开发\n实现环境监测、智能灌溉\n以及设备控制、场景联动\n适用于大棚/大田现代化农业管理")
             .fontSize(16)
-            .fontColor("#374151")
+            .fontColor(ThemeColors.textSecondary)
             .textAlign(TextAlign.Center)
             .width("90%")
             .margin({ top: 20 })
@@ -1870,7 +2063,7 @@ export struct AboutProject {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F3F4F6')
+      .backgroundColor(ThemeColors.bgPrimary)
     }
     .width("100%")
     .height("100%")
@@ -1899,11 +2092,10 @@ export struct AccountSetting {
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Column() {
-        // 顶部标题栏
         Row() {
           Text("<")
             .fontSize(22)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .padding({ left: 12, right: 12 })
             .onClick(() => {
               if (this.onBack) {
@@ -1913,45 +2105,51 @@ export struct AccountSetting {
 
           Text("账号设置")
             .fontSize(20)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .fontWeight(FontWeight.Bold)
             .flexGrow(1)
             .textAlign(TextAlign.Center)
         }
         .width('100%')
         .height(50)
-        .backgroundColor('#10B981')
+        .backgroundColor(ThemeColors.primary)
         .alignItems(VerticalAlign.Center)
         Column({ space: 15 }) {
           TextInput({ placeholder: "当前用户", text: this.username })
             .width("90%")
             .height(50)
-            .backgroundColor(Color.White)
+            .backgroundColor(ThemeColors.bgCard)
             .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
             .enabled(false)
 
           TextInput({ placeholder: "请输入旧密码" })
             .type(InputType.Password)
             .width("90%")
             .height(50)
-            .backgroundColor(Color.White)
+            .backgroundColor(ThemeColors.bgCard)
             .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
             .onChange(v => this.oldPwd = v);
 
           TextInput({ placeholder: "请输入新密码" })
             .type(InputType.Password)
             .width("90%")
             .height(50)
-            .backgroundColor(Color.White)
+            .backgroundColor(ThemeColors.bgCard)
             .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
             .onChange(v => this.newPwd = v);
 
           Button("保存修改")
             .width("90%")
             .height(50)
-            .backgroundColor('#10B981')
+            .backgroundColor(ThemeColors.primary)
             .backgroundImageSize(ImageSize.Cover)
-            .fontColor(Color.White)
+            .fontColor(ThemeColors.bgCard)
             .borderRadius(10)
             .onClick(async () => {
               if (!this.oldPwd || !this.newPwd) {
@@ -1971,7 +2169,7 @@ export struct AccountSetting {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F3F4F6')
+      .backgroundColor(ThemeColors.bgPrimary)
       .justifyContent(FlexAlign.Start)
     }
     .width("100%")
@@ -2019,7 +2217,7 @@ export struct AccountSetting {
     }
   }
 }
-// 类型声明
+
 declare interface SliderStyle {
   readonly OutSet: SliderStyle;
 }
@@ -2028,13 +2226,13 @@ function set_device(item:Device,command_on_off_number:string){
 
   if(item.type_id<999){
 
-  }else if(item.type_id<2000){//补光补光灯
+  }else if(item.type_id<2000){
 
-  }else if(item.type_id<3000){//水阀
+  }else if(item.type_id<3000){
     _IoTad.set_waterValve_by_id(command_on_off_number)
-  }else if(item.type_id<4000){//温控设备
+  }else if(item.type_id<4000){
 
-  }else if(item.type_id<5000){//风扇
+  }else if(item.type_id<5000){
     _IoTad.set_fan_by_id(command_on_off_number)
   }else if(item.type_id<6000){
 

@@ -2,7 +2,7 @@ import { preferences } from '@kit.ArkData';
 import { FaultLogger } from '@kit.PerformanceAnalysisKit';
 
 
-export class LocalStoraga{
+export class LocalStorage{
   dataPreferences: preferences.Preferences | null = null;
   Storage:string = ''
   constructor(S:string) {

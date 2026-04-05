@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "智慧农场图像识别入口"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "主入口 Ability"
     },
     {
       "name": "EntryAbility_label",
@@ -19,6 +19,18 @@
     {
       "name": "media_permission_reason_setImage",
       "value": "EntryAbility"
+    },
+    {
+      "name": "permission_camera_reason",
+      "value": "用于拍摄农田照片进行识别"
+    },
+    {
+      "name": "permission_read_media_reason",
+      "value": "读取图库图片用于识别"
+    },
+    {
+      "name": "permission_write_media_reason",
+      "value": "保存识别时的临时图像"
     },
     {
       "name": "permission_location_reason",

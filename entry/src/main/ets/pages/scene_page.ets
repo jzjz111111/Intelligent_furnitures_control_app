@@ -132,6 +132,7 @@ export struct FarmScenePage {
     return descriptionMap[scene] || '';
   }
 }*/
+@Entry
 @Component
 export struct FarmScenePage {
   @Link arr_farmland: farmland[];

@@ -7,7 +7,7 @@ import { wifi } from '@kit.ConnectivityKit';
 import { router } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import preferences from '@ohos.data.preferences';
-import { LocalStoraga } from '../data/LocalStorage';
+import { LocalStorage } from '../data/LocalStorage';
 
 
 let udp:socket.UDPSocket = socket.constructUDPSocketInstance()
@@ -21,7 +21,7 @@ export struct search_device{
   @State is_add_list:boolean[] = [false,false,false]
   @State is_add:boolean = false
 
-  @State local:LocalStoraga = new LocalStoraga("data")
+  @State local:LocalStorage = new LocalStorage("data")
   async aboutToAppear() {
     await this.init()
     const is_search =  await this.local.getDate("is_search")

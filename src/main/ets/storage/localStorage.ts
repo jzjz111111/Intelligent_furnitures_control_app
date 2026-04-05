@@ -3,7 +3,7 @@ import { preferences } from '@kit.ArkData';
 export class LocalStorage {
   private dataPreferences: preferences.Preferences | null = null;
   private storage: string;
-
+//创建存储文件
   constructor(name: string) {
     this.storage = name;
   }
@@ -15,7 +15,7 @@ export class LocalStorage {
     return this.dataPreferences!;
   }
 
-  public async set(key: string, value: string | boolean | number): Promise<void> {
+  public async set(key: string, value: string | boolean | number): Promise<void> {//存数据
     const prefs = await this.getPreferences();
     await prefs.put(key, value);
     await new Promise<void>((resolve, reject) => {
@@ -23,7 +23,7 @@ export class LocalStorage {
     });
   }
 
-  public async get<T extends string | boolean | number>(key: string, defaultValue: T): Promise<T> {
+  public async get<T extends string | boolean | number>(key: string, defaultValue: T): Promise<T> {//取数据
     const prefs = await this.getPreferences();
     const value = await prefs.get(key, defaultValue);
     return value as T;
@@ -35,7 +35,7 @@ export class LocalStorage {
     return String(value);
   }
 
-  public async clear(key: string): Promise<void> {
+  public async clear(key: string): Promise<void> {//清除清空
     const prefs = await this.getPreferences();
     await prefs.put(key, '');
     await new Promise<void>((resolve, reject) => {
@@ -43,11 +43,11 @@ export class LocalStorage {
     });
   }
 
-  public async setJSON(key: string, obj: any): Promise<void> {
+  public async setJSON(key: string, obj: any): Promise<void> {//存JSON对象
     await this.set(key, JSON.stringify(obj));
   }
 
-  public async getJSON<T>(key: string): Promise<T | null> {
+  public async getJSON<T>(key: string): Promise<T | null> {//取JSON对象
     const s = await this.getString(key);
     if (!s) return null;
     try {

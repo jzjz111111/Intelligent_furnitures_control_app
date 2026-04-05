@@ -2,17 +2,21 @@
   "module": {
     "name": "entry",
     "type": "entry",
-    "description": "module_description",
+    "description": "test",
     "mainElement": "EntryAbility",
-    "deviceTypes": ["phone"],
+    "deviceTypes": [
+      "phone"
+    ],
     "deliveryWithInstall": true,
     "installationFree": false,
-    "pages": "$profile:main_pages",
-
     "requestPermissions": [
-      { "name": "ohos.permission.INTERNET" },
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      }
     ],
-
     "abilities": [
       {
         "name": "EntryAbility",
@@ -25,8 +29,12 @@
         "exported": true,
         "skills": [
           {
-            "entities": ["entity.system.home"],
-            "actions": ["ohos.want.action.home"]
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
           }
         ]
       }

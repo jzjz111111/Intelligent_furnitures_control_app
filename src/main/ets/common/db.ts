@@ -3,16 +3,37 @@ import fileio from '@ohos.fileio';
 
 const DB_NAME = 'agri.db';
 
+// 本地定义UserInfo，与HttpServer.ets保持一致
+interface UserInfo {
+  id: number;
+  username: string;
+  password: string;
+}
+
+// Users表
+const CREATE_USERS = `
+CREATE TABLE IF NOT EXISTS Users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  created_at INTEGER,
+  avatar TEXT DEFAULT ''
+);`;
+
+// 种植区域表
 const CREATE_ZONE = `
 CREATE TABLE IF NOT EXISTS Zone (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   name TEXT NOT NULL,
   location TEXT,
   note TEXT,
+  image_path TEXT DEFAULT '',
   created_at INTEGER,
   updated_at INTEGER
 );`;
 
+// 设备类型表
 const CREATE_DEVICE_TYPE = `
 CREATE TABLE IF NOT EXISTS DeviceType (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,6 +43,7 @@ CREATE TABLE IF NOT EXISTS DeviceType (
   desc TEXT
 );`;
 
+// 设备表
 const CREATE_DEVICE = `
 CREATE TABLE IF NOT EXISTS Device (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +54,7 @@ CREATE TABLE IF NOT EXISTS Device (
   status TEXT
 );`;
 
+// 传感器读数表
 const CREATE_SENSOR_READING = `
 CREATE TABLE IF NOT EXISTS SensorReading (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,6 +64,7 @@ CREATE TABLE IF NOT EXISTS SensorReading (
   ts INTEGER NOT NULL
 );`;
 
+// 自动控制规则表
 const CREATE_RULE = `
 CREATE TABLE IF NOT EXISTS Rule (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +80,32 @@ CREATE TABLE IF NOT EXISTS Rule (
   enabled INTEGER DEFAULT 1
 );`;
 
+// 视频表（适配ESP32-CAM，加device_sn）
+const CREATE_VIDEO = `
+CREATE TABLE IF NOT EXISTS Video (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  zone_id INTEGER,
+  device_sn TEXT,        <<< 新增：ESP32-CAM 序列号
+  file_name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  upload_time INTEGER NOT NULL,
+  duration INTEGER DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES Users(id)
+);`;
+
+// 每10分钟抓拍照片表
+const CREATE_CAPTURE_PHOTO = `
+CREATE TABLE IF NOT EXISTS capture_photo (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  device_sn TEXT NOT NULL,
+  zone_id INTEGER,
+  photo_path TEXT NOT NULL,
+  capture_time INTEGER NOT NULL
+);`;
+
+// 打开/创建数据库
 export async function openAgriDb(context: any): Promise<relationalStore.RdbStore> {
   const config: relationalStore.StoreConfig = {
     name: DB_NAME,
@@ -64,23 +114,29 @@ export async function openAgriDb(context: any): Promise<relationalStore.RdbStore
   const store = await relationalStore.getRdbStore(context, config);
   await ensureSchema(store);
   await seedDeviceTypes(store);
+  await seedTestData(store);
   return store;
 }
 
+// 执行建表SQL
 async function ensureSchema(store: relationalStore.RdbStore) {
+  await store.executeSql(CREATE_USERS);
   await store.executeSql(CREATE_ZONE);
   await store.executeSql(CREATE_DEVICE_TYPE);
   await store.executeSql(CREATE_DEVICE);
   await store.executeSql(CREATE_SENSOR_READING);
   await store.executeSql(CREATE_RULE);
-  try { await store.executeSql('ALTER TABLE Room RENAME TO Zone;'); } catch {}
-  try { await store.executeSql('ALTER TABLE Zone ADD COLUMN note TEXT;'); } catch {}
+  await store.executeSql(CREATE_VIDEO);
+  await store.executeSql(CREATE_CAPTURE_PHOTO); // <<< 新增
+  await store.executeSql('CREATE INDEX IF NOT EXISTS idx_zone_user ON Zone(user_id)');
 }
 
+// 自动插入默认设备类型（已加：光照传感器）
 async function seedDeviceTypes(store: relationalStore.RdbStore) {
   const types = [
     ['SENSOR_SOIL', '土壤湿度传感器', 'sensor', '采集土壤含水率'],
     ['SENSOR_TEMP', '温度传感器', 'sensor', '采集环境温度'],
+    ['SENSOR_LIGHT', '光照强度传感器', 'sensor', '采集环境光照强度(lux)'],
     ['VALVE_MAIN', '主灌溉阀门', 'valve', '控制灌溉水路'],
     ['CTRL_GATEWAY', '网关控制器', 'controller', '现场控制网关']
   ];
@@ -92,6 +148,36 @@ async function seedDeviceTypes(store: relationalStore.RdbStore) {
   }
 }
 
+// 初始化测试数据（已加：光照设备）
+async function seedTestData(store: relationalStore.RdbStore) {
+  await store.executeSql(`
+    INSERT OR IGNORE INTO Zone (name, location, note, created_at)
+    VALUES ('一号大棚', '东区', '蔬菜种植区', ?)
+  `, [Date.now()]);
+
+  await store.executeSql(`
+    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+    VALUES (1, 1, '土壤传感器', 'SN001', 'online')
+  `);
+  await store.executeSql(`
+    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+    VALUES (1, 3, '主灌溉阀门', 'VALVE001', 'online')
+  `);
+  //光照传感器设备
+  await store.executeSql(`
+    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+    VALUES (1, 5, '光照传感器', 'LIGHT001', 'online')
+  `);
+
+  await store.executeSql(`
+    INSERT OR IGNORE INTO Rule
+    (zone_id, sensor_metric, operator, threshold_low, threshold_high, action, target_device_id, enabled)
+    VALUES
+    (1, 'soilHumidity', '<', 30, 100, 'open', 3, 1)
+  `);
+}
+
+// 执行初始化SQL文件
 export async function runInitSql(store: relationalStore.RdbStore, context: any) {
   try {
     const d = context.resourceManager.getRawFileDescriptor('init.sql');
@@ -100,6 +186,377 @@ export async function runInitSql(store: relationalStore.RdbStore, context: any) 
     fileio.readSync(d.fd, buf);
     const sql = String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)) as any);
     const stmts = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    for (const s of stmts) { await store.executeSql(s); }
-  } catch {}
+    for (const s of stmts) {
+      await store.executeSql(s);
+    }
+  } catch (e) {
+    console.error('执行init.sql失败:', e);
+  }
+}
+
+// 头像功能
+export async function updateUserAvatar(
+  store: relationalStore.RdbStore,
+  userId: number,
+  avatarPath: string
+): Promise<number> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('id', userId);
+  const values = { avatar: avatarPath };
+  return store.update(values, predicates);
+}
+
+export async function getUserAvatar(
+  store: relationalStore.RdbStore,
+  userId: number
+): Promise<string> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('id', userId);
+  const resultSet = await store.query(predicates, ['avatar']);
+
+  let avatar = '';
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      avatar = resultSet.getString(resultSet.getColumnIndex('avatar'));
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return avatar;
+}
+
+export async function getUserById(
+  store: relationalStore.RdbStore,
+  userId: number
+): Promise<UserInfo | null> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('id', userId);
+  const resultSet = await store.query(predicates, ['id', 'username', 'password']);
+
+  let user: UserInfo | null = null;
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      user = {
+        id: resultSet.getLong(0),
+        username: resultSet.getString(1),
+        password: resultSet.getString(2)
+      };
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return user;
+}
+
+// 修改用户名+密码
+export async function updateUserProfile(
+  store: relationalStore.RdbStore,
+  userId: number,
+  newUsername: string,
+  newPassword: string
+): Promise<number> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('id', userId);
+  const values = {
+    username: newUsername,
+    password: newPassword
+  };
+  return store.update(values, predicates);
+}
+
+// 设置农田图片
+export async function setFarmImage(
+  store: relationalStore.RdbStore,
+  zoneId: number,
+  imagePath: string
+): Promise<number> {
+  const predicates = new relationalStore.RdbPredicates('Zone');
+  predicates.equalTo('id', zoneId);
+  return store.update({ image_path: imagePath }, predicates);
+}
+
+export async function getFarmImage(
+  store: relationalStore.RdbStore,
+  zoneId: number
+): Promise<string> {
+  const predicates = new relationalStore.RdbPredicates('Zone');
+  predicates.equalTo('id', zoneId);
+  const resultSet = await store.query(predicates, ['image_path']);
+
+  let path = '';
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      path = resultSet.getString(0);
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return path;
+}
+
+// 添加农田（支持图片）
+export async function addFarm(
+  store: relationalStore.RdbStore,
+  userId: number,
+  name: string,
+  location: string,
+  note: string,
+  imagePath: string = ''
+): Promise<number> {
+  const values = {
+    user_id: userId,
+    name: name,
+    location: location,
+    note: note,
+    image_path: imagePath,
+    created_at: Date.now(),
+    updated_at: Date.now()
+  };
+  return store.insert('Zone', values);
+}
+
+// 获取农田列表（带图片）
+export interface FarmZone {
+  id: number;
+  name: string;
+  location: string;
+  note: string;
+  imagePath: string;
+}
+
+export async function getFarmList(
+  store: relationalStore.RdbStore,
+  userId: number
+): Promise<FarmZone[]> {
+  const predicates = new relationalStore.RdbPredicates('Zone');
+  predicates.equalTo('user_id', userId);
+  const resultSet = await store.query(predicates, [
+    'id', 'name', 'location', 'note', 'image_path'
+  ]);
+
+  const list: FarmZone[] = [];
+  try {
+    if (resultSet && !resultSet.isClosed) {
+      while (resultSet.goToNextRow()) {
+        list.push({
+          id: resultSet.getLong(0),
+          name: resultSet.getString(1),
+          location: resultSet.getString(2),
+          note: resultSet.getString(3),
+          imagePath: resultSet.getString(4)
+        });
+      }
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return list;
+}
+
+// 视频功能
+export interface Video {
+  id?: number;
+  user_id: number;
+  zone_id?: number;
+  device_sn?: string; // <<< 新增
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  upload_time: number;
+  duration?: number;
+}
+
+// 新增视频记录（已适配ESP32，支持device_sn）
+export async function addVideoRecord(
+  store: relationalStore.RdbStore,
+  user_id: number,
+  zone_id: number | null,
+  device_sn: string | null,  // <<< 新增
+  file_name: string,
+  file_path: string,
+  file_size: number,
+  duration: number = 0
+): Promise<number> {
+  const data = {
+    user_id,
+    zone_id: zone_id ?? 0,
+    device_sn: device_sn ?? '', // <<< 新增
+    file_name,
+    file_path,
+    file_size,
+    upload_time: Date.now(),
+    duration
+  };
+  return store.insert('Video', data);
+}
+
+// 获取用户的所有视频
+export async function getVideoListByUserId(
+  store: relationalStore.RdbStore,
+  user_id: number
+): Promise<Video[]> {
+  const predicates = new relationalStore.RdbPredicates('Video');
+  predicates.equalTo('user_id', user_id);
+  const resultSet = await store.query(predicates, [
+    'id', 'user_id', 'zone_id', 'device_sn', 'file_name', 'file_path', 'file_size', 'upload_time', 'duration'
+  ]);
+
+  const list: Video[] = [];
+  try {
+    if (resultSet && !resultSet.isClosed) {
+      while (resultSet.goToNextRow()) {
+        list.push({
+          id: resultSet.getLong(0),
+          user_id: resultSet.getLong(1),
+          zone_id: resultSet.getLong(2),
+          device_sn: resultSet.getString(3),
+          file_name: resultSet.getString(4),
+          file_path: resultSet.getString(5),
+          file_size: resultSet.getLong(6),
+          upload_time: resultSet.getLong(7),
+          duration: resultSet.getLong(8)
+        });
+      }
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return list;
+}
+
+// 根据ID获取单个视频
+export async function getVideoById(
+  store: relationalStore.RdbStore,
+  id: number
+): Promise<Video | null> {
+  const predicates = new relationalStore.RdbPredicates('Video');
+  predicates.equalTo('id', id);
+  const resultSet = await store.query(predicates, [
+    'id', 'user_id', 'zone_id', 'device_sn', 'file_name', 'file_path', 'file_size', 'upload_time', 'duration'
+  ]);
+
+  let video: Video | null = null;
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      video = {
+        id: resultSet.getLong(0),
+        user_id: resultSet.getLong(1),
+        zone_id: resultSet.getLong(2),
+        device_sn: resultSet.getString(3),
+        file_name: resultSet.getString(4),
+        file_path: resultSet.getString(5),
+        file_size: resultSet.getLong(6),
+        upload_time: resultSet.getLong(7),
+        duration: resultSet.getLong(8)
+      };
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return video;
+}
+
+// 删除视频记录
+export async function deleteVideoRecord(
+  store: relationalStore.RdbStore,
+  id: number
+): Promise<number> {
+  const predicates = new relationalStore.RdbPredicates('Video');
+  predicates.equalTo('id', id);
+  return store.delete(predicates);
+}
+
+// ==============================================================================================
+// 👇👇👇 【新增】抓拍照片 功能（你要的 10分钟抓拍 + APP照片列表接口 全在这里）
+// ==============================================================================================
+
+export interface CapturePhoto {
+  id?: number;
+  device_sn: string;
+  zone_id?: number;
+  photo_path: string;
+  capture_time: number;
+}
+
+// 插入抓拍照片（定时任务用）
+export async function addCapturePhoto(
+  store: relationalStore.RdbStore,
+  device_sn: string,
+  zone_id: number | null,
+  photo_path: string
+): Promise<number> {
+  const data = {
+    device_sn,
+    zone_id: zone_id ?? 0,
+    photo_path,
+    capture_time: Date.now()
+  };
+  return store.insert('capture_photo', data);
+}
+
+// 获取每个设备最新视频（抓拍用）
+export async function getLatestVideoPerDevice(store: relationalStore.RdbStore): Promise<Video[]> {
+  const sql = `
+    SELECT * FROM Video v1
+    WHERE upload_time = (SELECT MAX(upload_time) FROM Video v2 WHERE v2.device_sn = v1.device_sn)
+  `;
+  const resultSet = await store.querySql(sql, []);
+  const list: Video[] = [];
+  try {
+    while (resultSet.goToNextRow()) {
+      list.push({
+        id: resultSet.getLong(0),
+        user_id: resultSet.getLong(1),
+        zone_id: resultSet.getLong(2),
+        device_sn: resultSet.getString(3),
+        file_name: resultSet.getString(4),
+        file_path: resultSet.getString(5),
+        file_size: resultSet.getLong(6),
+        upload_time: resultSet.getLong(7),
+        duration: resultSet.getLong(8)
+      });
+    }
+  } finally {
+    resultSet.close();
+  }
+  return list;
+}
+
+// APP照片列表接口（按设备SN查询）
+export async function getPhotoListByDevice(
+  store: relationalStore.RdbStore,
+  device_sn: string
+): Promise<CapturePhoto[]> {
+  const predicates = new relationalStore.RdbPredicates('capture_photo');
+  predicates.equalTo('device_sn', device_sn);
+  predicates.orderByDesc('capture_time');
+
+  const resultSet = await store.query(predicates, ['id', 'device_sn', 'zone_id', 'photo_path', 'capture_time']);
+  const list: CapturePhoto[] = [];
+  try {
+    while (resultSet.goToNextRow()) {
+      list.push({
+        id: resultSet.getLong(0),
+        device_sn: resultSet.getString(1),
+        zone_id: resultSet.getLong(2),
+        photo_path: resultSet.getString(3),
+        capture_time: resultSet.getLong(4)
+      });
+    }
+  } finally {
+    resultSet.close();
+  }
+  return list;
 }

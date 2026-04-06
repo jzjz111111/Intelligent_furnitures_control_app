@@ -9,6 +9,7 @@ import { Datamodel } from '../utils/common';
 import { _Tcp } from '../tool/TCP';
 import { FarmlandDatabase } from '../data/RdbStorage';
 import { farmland, Device } from '../tool/classes';
+import { DataAnalysisPage } from './DataAnalysis';
 
 // 全局导出实例（保持原有全局调用能力）
 export let tcp: _Tcp = new _Tcp(8888, '192.168.191.19');
@@ -101,7 +102,24 @@ struct Index {
     .backgroundColor(num == this.selectnumber ? ThemeColors.bgCard : Color.White)
     .padding({ bottom: 8 });
   }
-
+  @Builder
+  MyBuilder_analysis(title:string,num:number){
+    Column() {
+      Row().width("100%").height(12);
+      Image($r("app.media.user"))
+        .height(num == this.selectnumber ? 24 : 20)
+        .width(num == this.selectnumber ? 24 : 20)
+        .fillColor(num == this.selectnumber ? ThemeColors.primary : ThemeColors.textTertiary);
+      Text(title)
+        .fontSize(12)
+        .fontColor(num == this.selectnumber ? ThemeColors.primary : ThemeColors.textTertiary)
+        .margin({ top: 4 });
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(num == this.selectnumber ? ThemeColors.bgCard : Color.White)
+    .padding({ bottom: 8 });
+  }
   @Builder
   MyBuilder_home(title: string, num: number) {
     Column() {
@@ -133,14 +151,20 @@ struct Index {
             });
           }
           .tabBar(this.MyBuilder_home("农场总览", 0))
+          TabContent(){
+            DataAnalysisPage()
+          }
+          .tabBar(this.MyBuilder_analysis("数据分析",1))
           TabContent() {
             FarmScenePage({ arr_farmland: this.arr_farmland });
           }
-          .tabBar(this.MyBuilder_add("智能场景", 1))
+          .tabBar(this.MyBuilder_add("智能场景", 2))
+
+
           TabContent() {
             userpage();
           }
-          .tabBar(this.MyBuilder_user("个人中心", 2))
+          .tabBar(this.MyBuilder_user("个人中心", 3))
         }
         .width('100%')
         .height('100%')

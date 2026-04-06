@@ -5,7 +5,6 @@ import { API_DeepSeek } from "../pages/OpenAI_Page";
 import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "./classes";
 import { router } from "@kit.ArkUI";
-import { face_cam } from "../pages/face_cma";
 import { preferences } from '@kit.ArkData';
 import cryptoFramework from '@ohos.security.cryptoFramework';
 import common from '@ohos.app.ability.common';
@@ -815,9 +814,7 @@ export struct FarmlandOverview {
       if (this.is_show_waterValve) {
         ControlWaterValve({ arr_farmland: this.arr_farmland, is_show: this.is_show_waterValve });
       }
-      if (this.is_show_robot) {
-        face_cam({ is_show: this.is_show_robot })
-      }
+
       if (this.is_show_dan) {
         ControlFan({ arr_farmland: this.arr_farmland, is_show: this.is_show_dan })
       }

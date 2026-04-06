@@ -158,6 +158,7 @@ export struct homepage {
   @State pulseEnvType: string = '';
 
   async aboutToAppear() {
+    this.requestLocation()
     this.localAddr = {
       family: 1,
       port: 8889,
@@ -288,7 +289,58 @@ export struct homepage {
       hilog.info(DOMAIN_NUMBER, TAG, 'Succeeded in publishing notification.');
     });
   }
+  async requestLocation() {
+    const permissions: Array<Permissions> = ['ohos.permission.LOCATION', 'ohos.permission.APPROXIMATELY_LOCATION'];
+    const atManager = abilityAccessCtrl.createAtManager();
+    try {
+      const result = await atManager.requestPermissionsFromUser(getContext(this) as common.UIAbilityContext, permissions);
+      const granted = result.authResults.every(r => r === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED);
+      if (granted) {
+        this.getCurrentLocation();
+      } else {
+        this.locationText = '授权失败，无法获取位置';
+      }
+    } catch (err) {
+      console.error('权限请求异常', err);
+      this.locationText = '权限请求异常';
+    }
+  }
 
+  async getCurrentLocation() {
+    if (!geoLocationManager.isLocationEnabled()) {
+      this.locationText = '请前往系统设置开启位置服务';
+      return;
+    }
+
+    try {
+      const location = await geoLocationManager.getCurrentLocation({
+        timeoutMs: 10000
+      });
+      this.locationText = `正在获取地址`;
+      // 可选：调用逆地理编码获取地址
+      this.getAddress(location.latitude, location.longitude);
+    } catch (err) {
+      console.error('获取位置失败', err);
+      this.locationText = '获取位置失败';
+    }
+  }
+
+  async getAddress(lat: number, lng: number) {
+    console.info('开始逆地理编码，坐标：', lat, lng);
+    const reverseRequest: geoLocationManager.ReverseGeoCodeRequest = {
+      latitude: lat,
+      longitude: lng,
+      maxItems: 1
+    };
+    try {
+      const result = await geoLocationManager.getAddressesFromLocation(reverseRequest);
+      if (result && result.length > 0) {
+        this.locationText = ` ${result[0].placeName}`;
+      }
+    } catch (err) {
+      console.error('逆地理编码失败', err);
+    }
+  }
   analyze_data(data: string) {
     let arr: string[] = data.split("/")
     for (let item of arr) {

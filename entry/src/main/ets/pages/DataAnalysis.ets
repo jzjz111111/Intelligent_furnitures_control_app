@@ -95,7 +95,12 @@ export struct DataAnalysisPage {
           .fontSize(15)
           .fontColor("#666")
           .margin({ bottom: 15 })
-
+        Image($r('app.media.position')) // 本地资源引用
+          .width('100%')       // 宽度占满屏幕
+          .height(200)         // 高度设为180vp（可自行调整）
+          .objectFit(ImageFit.Cover) // 图片填满容器，保持比例
+          .margin({ bottom: 15 })    // 底部留间距，和标题隔开
+          .borderRadius(12)
         Text("🌡  近7日温度变化趋势")
           .fontSize(18)
           .fontWeight(FontWeight.Medium)

@@ -3,6 +3,8 @@ import { ThemeColors } from '../utils/theme';
 import { displayFarmland } from '../tool/component';
 import { farmland, Device } from '../tool/classes';
 import { curves } from '@kit.ArkUI';
+import { FarmlandDatabase } from "../data/RdbStorage";
+let Farmland_db: FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 
 @Entry
 @Component
@@ -56,34 +58,18 @@ export struct RemoteControlPage {
     });
   }
 
-  // ========== 删除设备功能 - 真正从数据层删除 ==========
-  private deleteDevice(index: number) {
-    if (!this.farm) {
-      console.log('删除失败：farm 为 null');
-      return;
+  //删除逻辑
+  private async deleteDevice(index: number) {
+    if (!this.farm || !this.farm.device_s) return;
+    const delDevice = this.farm.device_s[index];
+    let r_id = await Farmland_db.getFarmlandsIdByName(this.farm.name);
+    await Farmland_db.deleteDeviceByFarmlandIdAndName(r_id, delDevice.name);
+    this.farm.device_s = this.farm.device_s.filter(
+      (element) => element.name !== delDevice.name
+    );
+    if (this.currentFarm) {
+      this.currentFarm.device_s = [...this.farm.device_s];
     }
-
-    if (!this.farm.device_s || index < 0 || index >= this.farm.device_s.length) {
-      console.log('删除失败：索引越界或设备数组为空');
-      return;
-    }
-
-    // 获取要删除的设备名称用于日志
-    const deletedName = this.farm.device_s[index].name;
-
-    // 从 @Observed 装饰的数组中删除 - 这会触发响应式更新
-    this.farm.device_s.splice(index, 1);
-
-    // 强制触发响应式更新 - 创建新数组引用
-    this.farm.device_s = [...this.farm.device_s];
-
-    // 同步更新 currentFarm（如果存在）
-    if (this.currentFarm && this.currentFarm.name === this.farm.name) {
-      this.currentFarm.device_s = this.farm.device_s;
-    }
-
-    console.log(`设备 "${deletedName}" 已删除，剩余设备数: ${this.farm.device_s.length}`);
-    console.log('当前设备列表：', this.farm.device_s.map(d => d.name).join(', '));
   }
 
   private showDeleteConfirm(index: number, deviceName: string) {
@@ -103,24 +89,30 @@ export struct RemoteControlPage {
 
   build() {
     Stack() {
-      Column() {
-        // ========== 顶部导航栏 - 玻璃拟态 ==========
-        this.GlassNavigationBar()
+      // ✅ 整个页面套 Scroll，实现全屏滚动（关键修改）
+      Scroll() {
+        Column() {
+          // ========== 顶部导航栏 - 玻璃拟态 ==========
+          this.GlassNavigationBar()
 
-        // ========== 农田信息卡片 - 3D悬浮效果 ==========
-        this.FarmInfoCard()
+          // ========== 农田信息卡片 - 3D悬浮效果 ==========
+          this.FarmInfoCard()
 
-        // ========== 环境数据卡片 - 动态展示 ==========
-        this.EnvironmentDataCards()
+          // ========== 环境数据卡片 - 动态展示 ==========
+          this.EnvironmentDataCards()
 
-        // ========== 添加设备按钮 - 脉冲光效 ==========
-        this.AddDeviceButton()
+          // ========== 添加设备按钮 - 脉冲光效 ==========
+          this.AddDeviceButton()
 
-        // ========== 设备列表 - 智能控制 ==========
-        this.DeviceControlList()
+          // ========== 设备列表 - 智能控制 ==========
+          this.DeviceControlList()
+
+          // 底部留白，防止最后一条被遮挡
+          Column().height(30)
+        }
+        .width("100%")
+        .height("100%")
       }
-      .width("100%")
-      .height("100%")
       .backgroundColor(ThemeColors.bgPrimary)
 
       // ========== 删除确认对话框 ==========
@@ -225,8 +217,6 @@ export struct RemoteControlPage {
         .fontColor(ThemeColors.textPrimary)
 
       Blank()
-
-      // 占位保持对称
       Row().width(60)
     }
     .width("100%")
@@ -243,100 +233,109 @@ export struct RemoteControlPage {
   // ========== 农田信息卡片 ==========
   @Builder
   FarmInfoCard() {
-    Row({ space: 16 }) {
-      // 农田头像/图标
-      Stack() {
-        if (this.farm?.avatar) {
-          Image(this.farm.avatar)
-            .width(100)
-            .height(100)
+    Column() {
+      Row({ space: 16 }) {
+        Stack() {
+          if (this.farm?.avatar) {
+            Image(this.farm.avatar)
+              .width(98)
+              .height(90)
+              .borderRadius(16)
+              .objectFit(ImageFit.Cover)
+              .shadow({
+                color: ThemeColors.techGlow,
+                radius: 20,
+                offsetX: 0,
+                offsetY: 8
+              })
+          } else {
+            Column() {
+              Text("🌱")
+                .fontSize(48)
+            }
+            .width(98)
+            .height(90)
+            .backgroundColor(ThemeColors.primaryLight)
             .borderRadius(16)
-            .objectFit(ImageFit.Cover)
+            .border({
+              width: 2,
+              color: ThemeColors.accent,
+              style: BorderStyle.Solid
+            })
             .shadow({
               color: ThemeColors.techGlow,
-              radius: 20,
+              radius: 16,
               offsetX: 0,
-              offsetY: 8
+              offsetY: 6
             })
-        } else {
-          Column() {
-            Text("🌱")
-              .fontSize(48)
           }
-          .width(100)
-          .height(100)
-          .backgroundColor(ThemeColors.primaryLight)
-          .borderRadius(16)
-          .border({
-            width: 2,
-            color: ThemeColors.accent,
-            style: BorderStyle.Solid
-          })
-          .shadow({
-            color: ThemeColors.techGlow,
-            radius: 16,
-            offsetX: 0,
-            offsetY: 6
-          })
-        }
 
-        // 状态指示灯
-        Column()
-          .width(12)
-          .height(12)
-          .backgroundColor(ThemeColors.success)
-          .borderRadius(6)
-          .border({ width: 2, color: Color.White })
-          .shadow({ color: ThemeColors.success, radius: 8 })
-          .position({ x: 88, y: -4 })
-      }
-
-      Column({ space: 6 }) {
-        Text(this.farm?.name || "智慧农田 A-01")
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(ThemeColors.textPrimary)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Row({ space: 8 }) {
-          Text("在线")
-            .fontSize(10)
-            .fontColor(Color.White)
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+          Column()
+            .width(12)
+            .height(12)
             .backgroundColor(ThemeColors.success)
-            .borderRadius(10)
-
-          Text("一号园区 · 8亩")
-            .fontSize(13)
-            .fontColor(ThemeColors.textSecondary)
+            .borderRadius(6)
+            .border({ width: 2, color: Color.White })
+            .shadow({ color: ThemeColors.success, radius: 8 })
+            .position({ x: 88, y: -4 })
         }
 
-        Text("品种：智慧温室大棚")
-          .fontSize(13)
-          .fontColor(ThemeColors.textTertiary)
+        Column({ space: 6 }) {
+          Text(this.farm?.name || "智慧农田 A-01")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(ThemeColors.textPrimary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Row({ space: 8 }) {
+            Text("在线")
+              .fontSize(10)
+              .fontColor(Color.White)
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .backgroundColor(ThemeColors.success)
+              .borderRadius(10)
+
+            Text("一号园区 · 8亩")
+              .fontSize(13)
+              .fontColor(ThemeColors.textSecondary)
+          }
+
+          Text("品种：智慧温室大棚")
+            .fontSize(13)
+            .fontColor(ThemeColors.textTertiary)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      .width("92%")
+      .padding(20)
+      .backgroundColor(ThemeColors.bgCard)
+      .borderRadius(20)
+      .border({
+        width: 1,
+        color: ThemeColors.borderLight
+      })
+      .shadow({
+        color: ThemeColors.shadowDark,
+        radius: 12,
+        offsetX: 0,
+        offsetY: 4
+      })
+      .scale({ x: this.headerScale, y: this.headerScale })
+      .opacity(this.headerOpacity)
+      .animation({ duration: 400, curve: curves.springMotion() })
+      .margin({ top: 100, bottom: 5 })
+      .shadow(10)
+      .borderWidth(1)
+      .borderColor('#f0f0f0')
     }
-    .width("92%")
-    .padding(20)
-    .backgroundColor(ThemeColors.bgCard)
-    .borderRadius(20)
-    .border({
-      width: 1,
-      color: ThemeColors.borderLight
-    })
-    .shadow({
-      color: ThemeColors.shadowDark,
-      radius: 12,
-      offsetX: 0,
-      offsetY: 4
-    })
-    .margin({ top: 12 })
-    .scale({ x: this.headerScale, y: this.headerScale })
-    .opacity(this.headerOpacity)
-    .animation({ duration: 400, curve: curves.springMotion() })
+    .height(240)
+    .width("100%")
+    .padding(15)
+    .backgroundColor("#fff8f6f6")
+    .borderRadius(16)
+    .margin({ top: 5, bottom: 5 })
   }
 
   // ========== 环境数据卡片 ==========
@@ -408,39 +407,29 @@ export struct RemoteControlPage {
   // ========== 设备控制列表 ==========
   @Builder
   DeviceControlList() {
-    Scroll() {
-      Column({ space: 12 }) {
-        // 保持原始逻辑：判断空状态
-        if (this.farm?.device_s.length === 0) {
-          Text("暂无设备，点击上方添加设备")
-            .fontSize(16)
-            .fontColor(ThemeColors.textSecondary)
-            .margin({ top: 20 });
-        }
-
-        // 遍历设备列表，添加删除功能
-        ForEach(this.farm?.device_s || [], (item: Device, index: number) => {
-          this.ControlItem(item, index)
-        }, (item: Device, index: number) => index.toString())
+    Column({ space: 12 }) {
+      if (this.farm?.device_s.length === 0) {
+        Text("暂无设备，点击上方添加设备")
+          .fontSize(16)
+          .fontColor(ThemeColors.textSecondary)
+          .margin({ top: 20 });
       }
-      .width("92%")
-      .padding(0)
-      .margin({ top: 0 });
+
+      ForEach(this.farm?.device_s || [], (item: Device, index: number) => {
+        this.ControlItem(item, index)
+      }, (item: Device) => item.name )
     }
-    .layoutWeight(1)
-    .scrollBar(BarState.Auto)
+    .width("92%")
     .translate({ y: this.deviceListOffsetY })
     .opacity(this.deviceListOpacity)
     .animation({ duration: 600, curve: Curve.EaseOut })
   }
 
-  // ========== 设备控制项（保持原始开关UI和逻辑，添加删除按钮） ==========
+  // ========== 设备控制项 ==========
   @Builder
   ControlItem(item: Device, index: number) {
     Row() {
-      // 左侧：设备信息
       Row({ space: 12 }) {
-        // 设备图标
         Text(this.getDeviceIcon(item.name))
           .fontSize(24);
 
@@ -452,7 +441,6 @@ export struct RemoteControlPage {
 
       Blank()
 
-      // 中间：删除按钮（新增）
       Stack() {
         Text("🗑️")
           .fontSize(18)
@@ -476,12 +464,10 @@ export struct RemoteControlPage {
         }
       })
 
-      // 右侧：开关（保持原始UI和逻辑）
       Toggle({ type: ToggleType.Switch, isOn: item.switch === 1 })
         .selectedColor(ThemeColors.primary)
         .switchPointColor(Color.White)
         .onChange((isOn: boolean) => {
-          // 保持原始逻辑：直接修改 item.switch
           item.switch = isOn ? 1 : 0;
           console.log(`设备 ${item.name} 状态切换为: ${isOn ? '开启' : '关闭'}`);
         })

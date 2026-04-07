@@ -14,9 +14,10 @@ export async function bootstrap(context: Context): Promise<void> {
     console.log("[启动] 应用初始化开始...");
 
     // 1. 初始化数据库
-    const store: relationalStore.RdbStore = await openAgriDb(context);
-    await runInitSql(store, context);
-    console.log("[数据库] 初始化完成");
+    //const store: relationalStore.RdbStore = await openAgriDb(context);
+    //await runInitSql(store, context);
+    //console.log("[数据库] 初始化完成");
+    console.log("[数据库] 跳过初始化，直接行使HTTP请求");
 
     // 2. 初始化告警服务（你唯一需要的非HTTP功能）
     const roomDb = new RoomDatabase(context);

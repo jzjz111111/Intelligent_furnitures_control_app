@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS Video (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   zone_id INTEGER,
-  device_sn TEXT,        <<< 新增：ESP32-CAM 序列号
+  device_sn TEXT,
   file_name TEXT NOT NULL,
   file_path TEXT NOT NULL,
   file_size INTEGER NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS Video (
 
 // 每10分钟抓拍照片表
 const CREATE_CAPTURE_PHOTO = `
-CREATE TABLE IF NOT EXISTS capture_photo (
+CREATE TABLE IF NOT EXISTS CapturePhoto (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   device_sn TEXT NOT NULL,
   zone_id INTEGER,
@@ -175,6 +175,78 @@ async function seedTestData(store: relationalStore.RdbStore) {
     VALUES
     (1, 'soilHumidity', '<', 30, 100, 'open', 3, 1)
   `);
+}
+
+
+// 根据用户名获取用户信息（用于登录验证）
+export async function getUserByUsername(
+  store: relationalStore.RdbStore,
+  username: string
+): Promise<UserInfo | null> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('username', username);
+  const resultSet = await store.query(predicates, ['id', 'username', 'password']);
+
+  let user: UserInfo | null = null;
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      user = {
+        id: resultSet.getLong(0),
+        username: resultSet.getString(1),
+        password: resultSet.getString(2)
+      };
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return user;
+}
+
+// 用户登录验证
+export interface LoginResult {
+  success: boolean;
+  userId?: number;
+  username?: string;
+  message?: string;
+}
+
+export async function verifyUserLogin(
+  store: relationalStore.RdbStore,
+  username: string,
+  password: string
+): Promise<LoginResult> {
+  try {
+    const user = await getUserByUsername(store, username);
+
+    if (!user) {
+      return {
+        success: false,
+        message: '用户不存在'
+      };
+    }
+
+    if (user.password !== password) {
+      return {
+        success: false,
+        message: '密码错误'
+      };
+    }
+
+    return {
+      success: true,
+      userId: user.id,
+      username: user.username,
+      message: '登录成功'
+    };
+  } catch (err) {
+    console.error('登录验证失败:', err);
+    return {
+      success: false,
+      message: '服务器内部错误'
+    };
+  }
 }
 
 // 执行初始化SQL文件

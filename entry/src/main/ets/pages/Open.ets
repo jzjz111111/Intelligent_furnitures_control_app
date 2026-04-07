@@ -6,7 +6,31 @@ import util from '@ohos.util';
 import { systemDateTime } from '@kit.BasicServicesKit';
 import { curves } from '@kit.ArkUI';
 import { ThemeColors } from '../utils/theme';
+import http from '@ohos.net.http';
+import { MyHttpServer } from '../server/HttpServer';
 
+
+// 登录请求参数接口
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+interface LoginData {
+  userId: number;
+  username: string;
+}
+
+interface LoginResult {
+  code: number;
+  msg: string;
+  data: LoginData;
+}
+interface ServerResponse {
+  code: number;
+  data: object | null;
+  msg: string;
+}
 @Entry
 @Component
 struct NewPage {
@@ -364,7 +388,7 @@ struct NewPage {
     return true;
   }
 
-  private async handleLogin(): Promise<boolean> {
+  /*private async handleLogin(): Promise<boolean> {
     try {
       if (!this.userPreferences) {
         this.showCustomToast('系统未初始化', 'error');
@@ -398,7 +422,171 @@ struct NewPage {
       this.showCustomToast(`登录失败: ${error.message}`, 'error');
       return false;
     }
+  }*/
+
+
+  // ======================
+  // 真正的后端登录接口
+  // ======================
+  /*private async handleLogin(): Promise<boolean> {
+    let httpRequest = http.createHttp();
+    try {
+      let httpRequest = http.createHttp();
+      let url = "/api/user/login";
+      // 传给后端的账号密码
+      let postData: LoginRequest = {
+        username: this.input_userName,
+        password: this.input_password
+      };
+
+      let response = await httpRequest.request(url, {
+        method: http.RequestMethod.POST,
+        header: {
+          "Content-Type": "application/json"
+        },
+        extraData: JSON.stringify(postData)
+      });
+
+      if (response.responseCode !== 200) {
+        this.showCustomToast("服务器异常", "error");
+        return false;
+      }
+
+      let result = JSON.parse(response.result as string) as LoginResult;
+      if (result.code !== 200) {
+        this.showCustomToast(result.msg || "登录失败", "error");
+        return false;
+      }
+
+      // 登录成功 → 写本地状态
+      // 先判空，确保 userPreferences 不为 null
+      if (!this.userPreferences) {
+        this.showCustomToast("本地存储初始化失败", "error");
+        return false;
+      }
+      // 非空断言 ! 告诉编译器：这里一定不为 null
+      await this.userPreferences.put('last_login', this.input_userName);
+      await this.userPreferences.put("is_land", true);
+      await this.userPreferences.flush();
+
+      this.showCustomToast("登录成功", "success");
+      return true;
+
+    } catch (error) {
+      this.showCustomToast("网络异常 / 后端未启动", "error");
+      return false;
+    }finally {
+      httpRequest.destroy(); // ✅ 必须加，否则会泄漏
+    }
+  }*/
+  /*private async handleLogin(): Promise<boolean> {
+    try {
+      const url: string = "/api/user/login";
+      const postData: LoginRequest = {
+        username: this.input_userName,
+        password: this.input_password
+      };
+
+      // ✅ 直接调用你后端里的 getMockResponse 逻辑
+      const result = await this.handleServerApi(url, postData);
+
+      if (result.code !== 200) {
+        this.showCustomToast(result.msg || "登录失败", "error");
+        return false;
+      }
+
+      // 登录成功
+      await this.userPreferences!.put('last_login', this.input_userName);
+      await this.userPreferences!.put("is_land", true);
+      await this.userPreferences!.flush();
+
+      return true;
+
+    } catch (error) {
+      this.showCustomToast("登录失败：" + (error as Error).message, "error");
+      return false;
+    }
+  }*/
+  // ... existing code ...
+  private async handleLogin(): Promise<boolean> {
+    try {
+      const url: string = "http://127.0.0.1:8080/api/user/login";
+      const postData: LoginRequest = {
+        username: this.input_userName,
+        password: this.input_password
+      };
+
+      let httpRequest = http.createHttp();
+      try {
+        let response = await httpRequest.request(url, {
+          method: http.RequestMethod.POST,
+          header: {
+            "Content-Type": "application/json"
+          },
+          extraData: JSON.stringify(postData),
+          connectTimeout: 5000,
+          readTimeout: 5000
+        });
+
+        if (response.responseCode !== 200) {
+          this.showCustomToast("服务器异常", "error");
+          return false;
+        }
+
+        let result = JSON.parse(response.result as string) as ServerResponse;
+        if (result.code !== 200) {
+          this.showCustomToast(result.msg || "登录失败", "error");
+          return false;
+        }
+
+        await this.userPreferences!.put('last_login', this.input_userName);
+        await this.userPreferences!.put("is_land", true);
+        await this.userPreferences!.flush();
+
+        return true;
+      } finally {
+        httpRequest.destroy();
+      }
+
+    } catch (error) {
+      this.showCustomToast("登录失败：" + (error as Error).message, "error");
+      return false;
+    }
   }
+
+  // Deleted:private async handleServerApi(api: string, body: LoginRequest): Promise<ServerResponse> {
+  // Deleted:const globalThisAny: Record<string, Object | undefined> = globalThis as Record<string, Object | undefined>;
+  // Deleted:const serverInstance: Object | undefined = globalThisAny['httpServer'];
+  // Deleted:
+  // Deleted:if (!serverInstance || !(serverInstance instanceof MyHttpServer)) {
+  // Deleted:throw new Error("后端未启动");
+  // Deleted:}
+  // Deleted:
+  // Deleted:const server: MyHttpServer = serverInstance as MyHttpServer;
+  // Deleted:const responseStr: string = await server.getMockResponse(api, body);
+  // Deleted:const parsedResponse: ServerResponse = JSON.parse(responseStr) as ServerResponse;
+  // Deleted:return parsedResponse;
+  // Deleted:}
+
+
+  // ... existing code ...
+
+
+  // ✅ 直接和后端通信（你这个项目真正的联调方式）
+  private async handleServerApi(api: string, body: LoginRequest): Promise<ServerResponse> {
+    const globalThisAny: Record<string, Object | undefined> = globalThis as Record<string, Object | undefined>;
+    const serverInstance: Object | undefined = globalThisAny['httpServer'];
+
+    if (!serverInstance || !(serverInstance instanceof MyHttpServer)) {
+      throw new Error("后端未启动");
+    }
+
+    const server: MyHttpServer = serverInstance as MyHttpServer;
+    const responseStr: string = await server.getMockResponse(api, body);
+    const parsedResponse: ServerResponse = JSON.parse(responseStr) as ServerResponse;
+    return parsedResponse;
+  }
+
 
   private async encryptPassword(plainText: string): Promise<string> {
     try {

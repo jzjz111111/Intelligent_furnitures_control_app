@@ -6,6 +6,8 @@ import {
   getUserAvatar,
   updateUserProfile,
   getUserById,
+  getUserByUsername,
+  verifyUserLogin,
   addFarm,
   getFarmList,
   setFarmImage,
@@ -23,7 +25,18 @@ import socket from '@ohos.net.socket';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 
+// 登录请求体
+interface LoginBody {
+  username: string;
+  password: string;
+}
 
+// 登录响应数据
+interface LoginResponseData {
+  userId: number;
+  username: string;
+  token?: string;
+}
 // 统一响应接口
 interface ApiResponse<T> {
   code: number;
@@ -311,6 +324,7 @@ export class MyHttpServer {
           }
         };
         this.getMockResponse("/api/control/send", testCmd);
+
         console.log("自动测试硬件指令完成！");
       } catch (err) {
         console.error("硬件测试失败", err);
@@ -557,6 +571,35 @@ export class MyHttpServer {
   }
 
   async getMockResponse(path: string, body?: object): Promise<string> {
+    if (path === "/api/user/login" && body) {
+      try {
+        const b: LoginBody = body as LoginBody;
+
+        if (!b.username || !b.password) {
+          return this.fail("用户名和密码不能为空");
+        }
+
+        const store = await openAgriDb(this.context);
+        const loginResult = await verifyUserLogin(store, b.username, b.password);
+
+        if (!loginResult.success) {
+          return this.fail(loginResult.message || "登录失败");
+        }
+
+        const res: LoginResponseData = {
+          userId: loginResult.userId!,
+          username: loginResult.username!,
+          token: `token_${loginResult.userId}_${Date.now()}`
+        };
+
+        return this.success(res);
+      } catch (err) {
+        console.error("登录处理失败", err);
+        return this.fail("登录失败");
+      }
+    }
+
+
     if (path === "/api/esp32/uploadVideo" && body) {
       try {
         const b: Esp32VideoUploadBody = body as Esp32VideoUploadBody;

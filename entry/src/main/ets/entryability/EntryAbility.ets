@@ -2,7 +2,7 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { bootstrap } from '../app/bootstrap';
-//import { MyHttpServer } from '../server/HttpServer';
+import { MyHttpServer } from '../server/HttpServer';
 import { openAgriDb } from '../common/db';
 import { exportInitSql } from '../tool/exportSql';
 
@@ -10,7 +10,7 @@ import { exportInitSql } from '../tool/exportSql';
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
-  //private server: MyHttpServer | null = null;
+  private server: MyHttpServer | null = null;
 
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     // ========== 第一段原有逻辑 ==========
@@ -33,9 +33,11 @@ export default class EntryAbility extends UIAbility {
     }
 
     // 启动HTTP服务
-    //this.server = new MyHttpServer(this.context);
-    //await this.server.startServer();
-
+    hilog.info(0, 'AgriServer', '准备启动后端服务...');
+    this.server = new MyHttpServer(this.context);
+    hilog.info(0, 'AgriServer', 'MyHttpServer 实例创建成功，即将调用 startServer()');
+    await this.server.startServer();
+    hilog.info(0, 'AgriServer', 'startServer() 调用完成');
 
     hilog.info(0, 'AgriServer', '智慧农业服务 + 云平台硬件连接 已启动');
   }
@@ -46,9 +48,9 @@ export default class EntryAbility extends UIAbility {
 
     // ========== 第二段原有逻辑 ==========
     hilog.info(0, 'AgriServer', '服务销毁');
-   // if (this.server) {
-     // this.server.stopServer();
-    //}
+   if (this.server) {
+     this.server.stopServer();
+    }
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

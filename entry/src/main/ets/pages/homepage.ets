@@ -4,7 +4,7 @@ import { McLineChart, Options } from '@mcui/mccharts';
 import util from '@ohos.util';
 import router from '@ohos.router';
 import { temperature_control_device, Device, farmland } from '../tool/classes';
-import { displayFarmland, my_DeepSeek, add_farmland_page, AccountSetting, AboutProject, ControlLights, ControlWaterValve, ControlTemp } from '../tool/component';
+import {  add_farmland_page } from './AddFarm';
 import { LocalStorage } from '../data/LocalStorage';
 import { _Udp } from '../tool/UDP';
 import { Data_Tcp, _Tcp } from '../tool/TCP';

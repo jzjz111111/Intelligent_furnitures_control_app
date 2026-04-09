@@ -1,5 +1,5 @@
 import { Device, farmland } from "../tool/classes";
-import { ControlTemp } from "../tool/component";
+import { ControlTemp } from "./TotalControl";
 import { _IoTad } from "./scan_devices";
 import router from '@ohos.router';
 

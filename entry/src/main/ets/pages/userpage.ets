@@ -1,9 +1,11 @@
 // pages/userpage.ets
 // 智慧农业 - 个人中心 (修复渲染版)
-
+import util from '@ohos.util';
+import cryptoFramework from '@ohos.security.cryptoFramework';
+import common from '@ohos.app.ability.common';
+import { preferences } from '@kit.ArkData';
 import { ThemeColors } from '../utils/theme';
 import { Device } from '../tool/classes';
-import { AccountSetting, AboutProject } from '../tool/component';
 import picker from '@ohos.file.picker';
 import router from '@ohos.router';
 import { LocalStorage } from '../data/LocalStorage';
@@ -675,5 +677,212 @@ struct userpage {
     }
   }
 }
+
+@Component
+export struct AboutProject {
+  onBack?: () => void;
+
+  build() {
+    Stack() {
+      Column() {
+        Row() {
+          Text("<")
+            .fontSize(22)
+            .fontColor(ThemeColors.bgCard)
+            .padding(10)
+            .onClick(() => {
+              if (this.onBack) {
+                this.onBack()
+              }
+            })
+
+          Text("关于智慧农田")
+            .fontSize(20)
+            .fontColor(ThemeColors.bgCard)
+            .fontWeight(FontWeight.Bold)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+
+          Text("")
+            .width(44)
+        }
+        .width('100%')
+        .height(60)
+        .backgroundColor(ThemeColors.primary)
+        .padding({ top: 10 })
+        Column({ space: 15 }) {
+          Text("系统介绍")
+            .fontSize(28)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(ThemeColors.primary)
+            .margin({ top: 40 })
+
+          Text("本系统基于鸿蒙ArkTS开发\n实现环境监测、智能灌溉\n以及设备控制、场景联动\n适用于大棚/大田现代化农业管理")
+            .fontSize(16)
+            .fontColor(ThemeColors.textSecondary)
+            .textAlign(TextAlign.Center)
+            .width("90%")
+            .margin({ top: 20 })
+        }
+        .width("100%")
+        .alignItems(HorizontalAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(ThemeColors.bgPrimary)
+    }
+    .width("100%")
+    .height("100%")
+  }
+}
+
+@Component
+export struct AccountSetting {
+  @State username: string = '';
+  @State oldPwd: string = '';
+  @State newPwd: string = '';
+  onBack?: () => void;
+  private userPreferences: preferences.Preferences | null = null;
+
+  async aboutToAppear() {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      this.userPreferences = await preferences.getPreferences(context, 'userData');
+      const lastLogin = await this.userPreferences.get('last_login', '');
+      this.username = lastLogin as string;
+    } catch (e) {
+      console.error("初始化存储失败:", e);
+    }
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        Row() {
+          Text("<")
+            .fontSize(22)
+            .fontColor(ThemeColors.bgCard)
+            .padding({ left: 12, right: 12 })
+            .onClick(() => {
+              if (this.onBack) {
+                this.onBack()
+              }
+            })
+
+          Text("账号设置")
+            .fontSize(20)
+            .fontColor(ThemeColors.bgCard)
+            .fontWeight(FontWeight.Bold)
+            .flexGrow(1)
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .height(50)
+        .backgroundColor(ThemeColors.primary)
+        .alignItems(VerticalAlign.Center)
+        Column({ space: 15 }) {
+          TextInput({ placeholder: "当前用户", text: this.username })
+            .width("90%")
+            .height(50)
+            .backgroundColor(ThemeColors.bgCard)
+            .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
+            .enabled(false)
+
+          TextInput({ placeholder: "请输入旧密码" })
+            .type(InputType.Password)
+            .width("90%")
+            .height(50)
+            .backgroundColor(ThemeColors.bgCard)
+            .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
+            .onChange(v => this.oldPwd = v);
+
+          TextInput({ placeholder: "请输入新密码" })
+            .type(InputType.Password)
+            .width("90%")
+            .height(50)
+            .backgroundColor(ThemeColors.bgCard)
+            .borderRadius(10)
+            .fontColor(ThemeColors.textPrimary)
+            .placeholderColor(ThemeColors.textTertiary)
+            .onChange(v => this.newPwd = v);
+
+          Button("保存修改")
+            .width("90%")
+            .height(50)
+            .backgroundColor(ThemeColors.primary)
+            .backgroundImageSize(ImageSize.Cover)
+            .fontColor(ThemeColors.bgCard)
+            .borderRadius(10)
+            .onClick(async () => {
+              if (!this.oldPwd || !this.newPwd) {
+                console.log("请填写完整信息");
+                return;
+              }
+              await this.saveNewPassword();
+            });
+
+
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .margin({ top: 20 })
+
+
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(ThemeColors.bgPrimary)
+      .justifyContent(FlexAlign.Start)
+    }
+    .width("100%")
+    .height("100%")
+  }
+  private async saveNewPassword() {
+    if (!this.userPreferences) {
+      console.error("存储对象未初始化");
+      return;
+    }
+
+    try {
+      const oldPwdEncrypted = await this.encryptPassword(this.oldPwd);
+      const realPwd = await this.userPreferences.get(`user_${this.username}`, '') as string;
+
+      if (oldPwdEncrypted !== realPwd) {
+        console.log("旧密码错误");
+        return;
+      }
+      const newPwdEncrypted = await this.encryptPassword(this.newPwd);
+      await this.userPreferences.put(`user_${this.username}`, newPwdEncrypted);
+      await this.userPreferences.flush();
+
+      console.log("密码修改成功");
+      router.back();
+    } catch (e) {
+      console.error("修改密码失败:", e);
+    }
+  }
+
+  private async encryptPassword(plainText: string): Promise<string> {
+    try {
+      const md = cryptoFramework.createMd('SHA256');
+      const input: cryptoFramework.DataBlob = {
+        data: new util.TextEncoder().encode(plainText)
+      };
+      await md.update(input);
+      const digest = await md.digest();
+      return Array.from(new Uint8Array(digest.data))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch (e) {
+      console.error("密码加密失败:", e);
+      return "";
+    }
+  }
+}
+
 
 export { userpage };

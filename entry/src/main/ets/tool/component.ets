@@ -1,6 +1,5 @@
 import { LocalStorage } from "../data/LocalStorage";
 import { FarmlandDatabase } from "../data/RdbStorage";
-import { tcp } from "../pages/Index";
 import { API_DeepSeek } from "../pages/OpenAI_Page";
 import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "./classes";
@@ -15,7 +14,6 @@ import { ThemeColors } from '../utils/theme';
 let new_arr_farmlands:farmland[]
 let new_arr_f:Device[]
 
-let Farmland_db:FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 let new_f_R_Id:number
 
 @Component
@@ -32,10 +30,13 @@ export struct device_long {
   @State is_c:boolean = true
   @State o_f:Device = new Device('',0,0)
   @Link t_f:Device
+  private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {
     this.Light_number = this.arr_f[this.index_d].lighting
     this.o_f = this.arr_f[this.index_d]
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
   }
   build() {
     Stack() {
@@ -57,9 +58,10 @@ export struct device_long {
         Row(){
           Button('删除')
             .onClick(async ()=>{
-              let r_id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
+              if (!this.db) return;
+              let r_id = await this.db.getFarmlandsIdByName(this.farmland1.name)
 
-              await Farmland_db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
+              await this.db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
               this.arr_f = this.arr_f.filter((element) => element.name!== this.arr_f[this.index_d].name);
               this.is_chang = !this.is_chang
               this.is_show_d = false
@@ -212,7 +214,6 @@ struct device_edit{
               this.device.lighting = value
               this.Light_number = value
               console.log("LL:"+this.Light_number.toString())
-              tcp.sendLED_chang(value,this.device.type_id)
               this.o_f = this.device
               //udp.sendLED_chang(value)
             })
@@ -260,6 +261,12 @@ export struct add_device_page {
   @Link is_show: boolean
   @State dev_name: string = ''
   type: number = 0
+  private db: FarmlandDatabase | null = null;
+
+  aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+  }
 
   build() {
     Stack() {
@@ -289,8 +296,8 @@ export struct add_device_page {
           .backgroundColor(ThemeColors.primary)
           .fontColor(ThemeColors.bgCard)
           .onClick(async () => {
-            if (this.dev_name != '' && this.type != 0) {
-              let success = await Farmland_db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
+            if (this.dev_name != '' && this.type != 0 && this.db) {
+              let success = await this.db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
               if (success == 1) {
                 const newDevice = new Device(this.dev_name, 0, this.type)
                 this.arr = [...this.arr, newDevice]
@@ -324,17 +331,14 @@ export struct add_device_page {
       MenuItem({ content: 'LED' }).onClick(() => {
         this.dev_name = 'LED'
       })
-      // 删除 .fontColor(ThemeColors.textPrimary)
 
       MenuItem({ content: '水阀' }).onClick(() => {
         this.dev_name = '水阀'
       })
-      // 删除 .fontColor(ThemeColors.textPrimary)
 
       MenuItem({ content: '温控设备' }).onClick(() => {
         this.dev_name = '温控设备'
       })
-      // 删除 .fontColor(ThemeColors.textPrimary)
     }
     .backgroundColor(ThemeColors.bgCard)
   }
@@ -346,6 +350,12 @@ export struct add_farmland_page {
   @State dev_name: string = ''
   @Link is_show: boolean
   @State avatarUri: string = ''
+  private db: FarmlandDatabase | null = null;
+
+  aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+  }
 
   build() {
 
@@ -386,8 +396,8 @@ export struct add_farmland_page {
             .backgroundColor(ThemeColors.primary)
             .fontColor(ThemeColors.bgCard)
             .onClick(async () => {
-              if (this.dev_name != '') {
-                let success = await Farmland_db.insertFarmland(new farmland(this.dev_name, [],this.avatarUri))
+              if (this.dev_name != '' && this.db) {
+                let success = await this.db.insertFarmland(new farmland(this.dev_name, [],this.avatarUri))
                 if(success != -1){
                   setTimeout(()=>{
                     this.arr.push(new farmland(this.dev_name, [],this.avatarUri))
@@ -473,9 +483,11 @@ export struct myList {
   @Link showList: boolean;
   @State this_d:Device = new Device('',0,1)
   @State is_change:boolean = true
+  private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {
-
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
   }
   aboutToDisappear(): void {
     this.farmland1.device_s = this.arr_dev
@@ -552,7 +564,9 @@ export struct myList {
           Row(){
             Button("+")
               .onClick(async () => {
-                new_f_R_Id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
+                if (this.db) {
+                  new_f_R_Id = await this.db.getFarmlandsIdByName(this.farmland1.name)
+                }
                 this.show_add = true
                 animateTo({duration:200},()=>{
                   this._height = "100%"
@@ -614,6 +628,9 @@ export struct myList {
     })
   }
 }
+
+// ... existing code ...
+
 
 @Component
 export struct myRow {
@@ -1020,12 +1037,6 @@ struct MySlider{
       })
         .onChange(async (value) => {
           this.lighting = value;
-          for (let f of this._farmland.device_s) {
-            if (f.type_id > 999 && f.type_id < 2000) {
-              await tcp.sendLED_chang(value, f.type_id);
-              tcp.getData();
-            }
-          }
           this.bulbColor = this.calculateBulbColor(this.lighting)
           _IoTad.set_LED_brightness_by_id(value*1000)
 

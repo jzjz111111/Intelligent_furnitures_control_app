@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.cer",
+          "certpath": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001A13B623B25A8FA6E189B720A44928904355AC4F3B8077FA10FFEB21DCE98A2E471471EABBC231",
-          "profile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p7b",
+          "keyPassword": "0000001B4374DDA5E88F691137BB275ED077E4B2D77A12D31DBA51D67852D0C6C172BEDC06B013D4DAEDBE",
+          "profile": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\hp\\.ohos\\config\\default_Intelligent_furnitures_control_app_8mkaeD-_S0ooa0IQ3Xb1qmv7f89D6ptq8gDCQG8O2es=.p12",
-          "storePassword": "0000001AA04348C4C3CD9DA27BC907066C344DD7B231AEB57849743034921D3EC0A9FE9B1DAF1653AF85"
+          "storeFile": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.p12",
+          "storePassword": "0000001BCA4EF1387B558C04D52A69CBC04992B7EBBAFA9691E26759A6E476787CD3113E4E40A967DB0E34"
         }
       }
     ],

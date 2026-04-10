@@ -1,4 +1,5 @@
 import { preferences } from '@kit.ArkData';
+import common from '@ohos.app.ability.common';
 
 export class LocalStorage {
   private dataPreferences: preferences.Preferences | null = null;
@@ -11,14 +12,13 @@ export class LocalStorage {
 
   private async getPreferences(): Promise<preferences.Preferences> {
     if (!this.dataPreferences) {
-      this.dataPreferences = await preferences.getPreferences(globalThis.context, this.storage);
+      const context = getContext(this) as common.UIAbilityContext;
+
+      this.dataPreferences = await preferences.getPreferences(context, this.storage);
     }
     return this.dataPreferences!;
   }
 
-  // ==============================
-  // 你新版的所有功能 100% 保留
-  // ==============================
 
   public async set(key: string, value: string | boolean | number): Promise<void> {
     const prefs = await this.getPreferences();

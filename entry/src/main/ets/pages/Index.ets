@@ -6,14 +6,11 @@ import { userpage } from './userpage';
 import { WarnPage } from './WarnPage';
 import { ThemeColors } from '../utils/theme';
 import { Datamodel } from '../utils/common';
-import { _Tcp } from '../tool/TCP';
 import { FarmlandDatabase } from '../data/RdbStorage';
 import { farmland, Device } from '../tool/classes';
 import { DataAnalysisPage } from './DataAnalysis';
+import common from '@ohos.app.ability.common';
 
-// 全局导出实例（保持原有全局调用能力）
-export let tcp: _Tcp = new _Tcp(8888, '192.168.191.19');
-export let Farmland_db: FarmlandDatabase = new FarmlandDatabase(globalThis.getContext());
 
 @Component
 @Entry
@@ -33,13 +30,20 @@ struct Index {
   @State is_show_dan: boolean = false;
   @State edit_f: Device = new Device("", 0, 0);
 
-  // 启动时自动弹出警告（模拟数据）
+  private db: FarmlandDatabase | null = null;
+
   aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+
     // 延迟一点显示，确保页面渲染完成
     setTimeout(() => {
       this.showMockWarning();
     }, 500);
   }
+
+  // ... existing code ...
+
 
   // 显示模拟警告数据
   private showMockWarning(): void {

@@ -106,75 +106,89 @@ CREATE TABLE IF NOT EXISTS CapturePhoto (
 );`;
 
 // 打开/创建数据库
+// 第109-118行 openAgriDb 函数
 export async function openAgriDb(context: any): Promise<relationalStore.RdbStore> {
-  const config: relationalStore.StoreConfig = {
-    name: DB_NAME,
-    securityLevel: relationalStore.SecurityLevel.S1
-  };
-  const store = await relationalStore.getRdbStore(context, config);
-  await ensureSchema(store);
-  await seedDeviceTypes(store);
-  await seedTestData(store);
-  return store;
+  try {
+    const config: relationalStore.StoreConfig = {
+      name: DB_NAME,
+      securityLevel: relationalStore.SecurityLevel.S1
+    };
+    const store = await relationalStore.getRdbStore(context, config);
+    await ensureSchema(store);
+    await seedDeviceTypes(store);
+    await seedTestData(store);
+    return store;
+  } catch (err) {
+    console.error('打开数据库失败:', err);
+    throw err;
+  }
 }
 
-// 执行建表SQL
 async function ensureSchema(store: relationalStore.RdbStore) {
-  await store.executeSql(CREATE_USERS);
-  await store.executeSql(CREATE_ZONE);
-  await store.executeSql(CREATE_DEVICE_TYPE);
-  await store.executeSql(CREATE_DEVICE);
-  await store.executeSql(CREATE_SENSOR_READING);
-  await store.executeSql(CREATE_RULE);
-  await store.executeSql(CREATE_VIDEO);
-  await store.executeSql(CREATE_CAPTURE_PHOTO); // <<< 新增
-  await store.executeSql('CREATE INDEX IF NOT EXISTS idx_zone_user ON Zone(user_id)');
+  try {
+    await store.executeSql(CREATE_USERS);
+    await store.executeSql(CREATE_ZONE);
+    await store.executeSql(CREATE_DEVICE_TYPE);
+    await store.executeSql(CREATE_DEVICE);
+    await store.executeSql(CREATE_SENSOR_READING);
+    await store.executeSql(CREATE_RULE);
+    await store.executeSql(CREATE_VIDEO);
+    await store.executeSql(CREATE_CAPTURE_PHOTO);
+    await store.executeSql('CREATE INDEX IF NOT EXISTS idx_zone_user ON Zone(user_id)');
+  } catch (err) {
+    console.error('创建表结构失败:', err);
+    throw err;
+  }
 }
 
 // 自动插入默认设备类型（已加：光照传感器）
 async function seedDeviceTypes(store: relationalStore.RdbStore) {
-  const types = [
-    ['SENSOR_SOIL', '土壤湿度传感器', 'sensor', '采集土壤含水率'],
-    ['SENSOR_TEMP', '温度传感器', 'sensor', '采集环境温度'],
-    ['SENSOR_LIGHT', '光照强度传感器', 'sensor', '采集环境光照强度(lux)'],
-    ['VALVE_MAIN', '主灌溉阀门', 'valve', '控制灌溉水路'],
-    ['CTRL_GATEWAY', '网关控制器', 'controller', '现场控制网关']
-  ];
-  for (const [code, name, category, desc] of types) {
-    await store.executeSql(
-      'INSERT OR IGNORE INTO DeviceType (code, name, category, desc) VALUES (?, ?, ?, ?)',
-      [code, name, category, desc]
-    );
+  try {
+    const types = [
+      ['SENSOR_SOIL', '土壤湿度传感器', 'sensor', '采集土壤含水率'],
+      ['SENSOR_TEMP', '温度传感器', 'sensor', '采集环境温度'],
+      ['SENSOR_LIGHT', '光照强度传感器', 'sensor', '采集环境光照强度(lux)'],
+      ['VALVE_MAIN', '主灌溉阀门', 'valve', '控制灌溉水路'],
+      ['CTRL_GATEWAY', '网关控制器', 'controller', '现场控制网关']
+    ];
+    for (const [code, name, category, desc] of types) {
+      await store.executeSql(
+        'INSERT OR IGNORE INTO DeviceType (code, name, category, desc) VALUES (?, ?, ?, ?)',
+        [code, name, category, desc]
+      );
+    }
+  } catch (err) {
+    console.error('初始化设备类型失败:', err);
+    throw err;
   }
 }
 
 // 初始化测试数据（已加：光照设备）
 async function seedTestData(store: relationalStore.RdbStore) {
-  await store.executeSql(`
-    INSERT OR IGNORE INTO Zone (name, location, note, created_at)
-    VALUES ('一号大棚', '东区', '蔬菜种植区', ?)
-  `, [Date.now()]);
+  try {
+    await store.executeSql(`      INSERT OR IGNORE INTO Zone (name, location, note, created_at)
+      VALUES ('一号大棚', '东区', '蔬菜种植区', ?)
+    `, [Date.now()]);
 
-  await store.executeSql(`
-    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
-    VALUES (1, 1, '土壤传感器', 'SN001', 'online')
-  `);
-  await store.executeSql(`
-    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
-    VALUES (1, 3, '主灌溉阀门', 'VALVE001', 'online')
-  `);
-  //光照传感器设备
-  await store.executeSql(`
-    INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
-    VALUES (1, 5, '光照传感器', 'LIGHT001', 'online')
-  `);
+    await store.executeSql(`      INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+      VALUES (1, 1, '土壤传感器', 'SN001', 'online')
+    `);
+    await store.executeSql(`      INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+      VALUES (1, 3, '主灌溉阀门', 'VALVE001', 'online')
+    `);
+    await store.executeSql(`      INSERT OR IGNORE INTO Device (zone_id, device_type_id, name, sn, status)
+      VALUES (1, 5, '光照传感器', 'LIGHT001', 'online')
+    `);
 
-  await store.executeSql(`
-    INSERT OR IGNORE INTO Rule
-    (zone_id, sensor_metric, operator, threshold_low, threshold_high, action, target_device_id, enabled)
-    VALUES
-    (1, 'soilHumidity', '<', 30, 100, 'open', 3, 1)
-  `);
+    await store.executeSql(`      INSERT OR IGNORE INTO Rule
+      (zone_id, sensor_metric, operator, threshold_low, threshold_high, action, target_device_id, enabled)
+      VALUES
+      (1, 'soilHumidity', '<', 30, 100, 'open', 3, 1)
+    `);
+  } catch (err) {
+    console.error('初始化测试数据失败:', err);
+    throw err;
+  }
 }
 
 
@@ -196,6 +210,9 @@ export async function getUserByUsername(
         password: resultSet.getString(2)
       };
     }
+  } catch (err) {
+    console.error('查询用户失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -210,6 +227,42 @@ export interface LoginResult {
   userId?: number;
   username?: string;
   message?: string;
+}
+
+// 创建用户(注册)
+export async function createUser(
+  store: relationalStore.RdbStore,
+  username: string,
+  password: string
+): Promise<number> {
+  const values = {
+    username: username,
+    password: password,
+    created_at: Date.now()
+  };
+  return await store.insert('Users', values);
+}
+
+// 检查用户名是否存在
+export async function checkUsernameExists(
+  store: relationalStore.RdbStore,
+  username: string
+): Promise<boolean> {
+  const predicates = new relationalStore.RdbPredicates('Users');
+  predicates.equalTo('username', username);
+  const resultSet = await store.query(predicates, ['id']);
+
+  let exists = false;
+  try {
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      exists = true;
+    }
+  } finally {
+    if (resultSet && !resultSet.isClosed) {
+      resultSet.close();
+    }
+  }
+  return exists;
 }
 
 export async function verifyUserLogin(
@@ -272,10 +325,15 @@ export async function updateUserAvatar(
   userId: number,
   avatarPath: string
 ): Promise<number> {
-  const predicates = new relationalStore.RdbPredicates('Users');
-  predicates.equalTo('id', userId);
-  const values = { avatar: avatarPath };
-  return store.update(values, predicates);
+  try {
+    const predicates = new relationalStore.RdbPredicates('Users');
+    predicates.equalTo('id', userId);
+    const values = { avatar: avatarPath };
+    return await store.update(values, predicates);
+  } catch (err) {
+    console.error('更新头像失败:', err);
+    throw err;
+  }
 }
 
 export async function getUserAvatar(
@@ -291,6 +349,9 @@ export async function getUserAvatar(
     if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
       avatar = resultSet.getString(resultSet.getColumnIndex('avatar'));
     }
+  } catch (err) {
+    console.error('查询头像失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -316,6 +377,9 @@ export async function getUserById(
         password: resultSet.getString(2)
       };
     }
+  } catch (err) {
+    console.error('查询用户失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -323,7 +387,6 @@ export async function getUserById(
   }
   return user;
 }
-
 // 修改用户名+密码
 export async function updateUserProfile(
   store: relationalStore.RdbStore,
@@ -331,13 +394,18 @@ export async function updateUserProfile(
   newUsername: string,
   newPassword: string
 ): Promise<number> {
-  const predicates = new relationalStore.RdbPredicates('Users');
-  predicates.equalTo('id', userId);
-  const values = {
-    username: newUsername,
-    password: newPassword
-  };
-  return store.update(values, predicates);
+  try {
+    const predicates = new relationalStore.RdbPredicates('Users');
+    predicates.equalTo('id', userId);
+    const values = {
+      username: newUsername,
+      password: newPassword
+    };
+    return await store.update(values, predicates);
+  } catch (err) {
+    console.error('更新用户资料失败:', err);
+    throw err;
+  }
 }
 
 // 设置农田图片
@@ -346,9 +414,14 @@ export async function setFarmImage(
   zoneId: number,
   imagePath: string
 ): Promise<number> {
-  const predicates = new relationalStore.RdbPredicates('Zone');
-  predicates.equalTo('id', zoneId);
-  return store.update({ image_path: imagePath }, predicates);
+  try {
+    const predicates = new relationalStore.RdbPredicates('Zone');
+    predicates.equalTo('id', zoneId);
+    return await store.update({ image_path: imagePath }, predicates);
+  } catch (err) {
+    console.error('设置农田图片失败:', err);
+    throw err;
+  }
 }
 
 export async function getFarmImage(
@@ -364,6 +437,9 @@ export async function getFarmImage(
     if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
       path = resultSet.getString(0);
     }
+  } catch (err) {
+    console.error('查询农田图片失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -381,16 +457,21 @@ export async function addFarm(
   note: string,
   imagePath: string = ''
 ): Promise<number> {
-  const values = {
-    user_id: userId,
-    name: name,
-    location: location,
-    note: note,
-    image_path: imagePath,
-    created_at: Date.now(),
-    updated_at: Date.now()
-  };
-  return store.insert('Zone', values);
+  try {
+    const values = {
+      user_id: userId,
+      name: name,
+      location: location,
+      note: note,
+      image_path: imagePath,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    };
+    return await store.insert('Zone', values);
+  } catch (err) {
+    console.error('添加农田失败:', err);
+    throw err;
+  }
 }
 
 // 获取农田列表（带图片）
@@ -425,6 +506,9 @@ export async function getFarmList(
         });
       }
     }
+  } catch (err) {
+    console.error('查询农田列表失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -432,7 +516,6 @@ export async function getFarmList(
   }
   return list;
 }
-
 // 视频功能
 export interface Video {
   id?: number;
@@ -451,23 +534,28 @@ export async function addVideoRecord(
   store: relationalStore.RdbStore,
   user_id: number,
   zone_id: number | null,
-  device_sn: string | null,  // <<< 新增
+  device_sn: string | null,
   file_name: string,
   file_path: string,
   file_size: number,
   duration: number = 0
 ): Promise<number> {
-  const data = {
-    user_id,
-    zone_id: zone_id ?? 0,
-    device_sn: device_sn ?? '', // <<< 新增
-    file_name,
-    file_path,
-    file_size,
-    upload_time: Date.now(),
-    duration
-  };
-  return store.insert('Video', data);
+  try {
+    const data = {
+      user_id,
+      zone_id: zone_id ?? 0,
+      device_sn: device_sn ?? '',
+      file_name,
+      file_path,
+      file_size,
+      upload_time: Date.now(),
+      duration
+    };
+    return await store.insert('Video', data);
+  } catch (err) {
+    console.error('添加视频记录失败:', err);
+    throw err;
+  }
 }
 
 // 获取用户的所有视频
@@ -498,6 +586,9 @@ export async function getVideoListByUserId(
         });
       }
     }
+  } catch (err) {
+    console.error('查询视频列表失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -532,6 +623,9 @@ export async function getVideoById(
         duration: resultSet.getLong(8)
       };
     }
+  } catch (err) {
+    console.error('查询视频失败:', err);
+    throw err;
   } finally {
     if (resultSet && !resultSet.isClosed) {
       resultSet.close();
@@ -545,14 +639,17 @@ export async function deleteVideoRecord(
   store: relationalStore.RdbStore,
   id: number
 ): Promise<number> {
-  const predicates = new relationalStore.RdbPredicates('Video');
-  predicates.equalTo('id', id);
-  return store.delete(predicates);
+  try {
+    const predicates = new relationalStore.RdbPredicates('Video');
+    predicates.equalTo('id', id);
+    return await store.delete(predicates);
+  } catch (err) {
+    console.error('删除视频记录失败:', err);
+    throw err;
+  }
 }
 
-// ==============================================================================================
-// 👇👇👇 【新增】抓拍照片 功能（你要的 10分钟抓拍 + APP照片列表接口 全在这里）
-// ==============================================================================================
+
 
 export interface CapturePhoto {
   id?: number;
@@ -569,19 +666,23 @@ export async function addCapturePhoto(
   zone_id: number | null,
   photo_path: string
 ): Promise<number> {
-  const data = {
-    device_sn,
-    zone_id: zone_id ?? 0,
-    photo_path,
-    capture_time: Date.now()
-  };
-  return store.insert('capture_photo', data);
+  try {
+    const data = {
+      device_sn,
+      zone_id: zone_id ?? 0,
+      photo_path,
+      capture_time: Date.now()
+    };
+    return await store.insert('capture_photo', data);
+  } catch (err) {
+    console.error('添加抓拍照片失败:', err);
+    throw err;
+  }
 }
 
 // 获取每个设备最新视频（抓拍用）
 export async function getLatestVideoPerDevice(store: relationalStore.RdbStore): Promise<Video[]> {
-  const sql = `
-    SELECT * FROM Video v1
+  const sql = `    SELECT * FROM Video v1
     WHERE upload_time = (SELECT MAX(upload_time) FROM Video v2 WHERE v2.device_sn = v1.device_sn)
   `;
   const resultSet = await store.querySql(sql, []);
@@ -600,6 +701,9 @@ export async function getLatestVideoPerDevice(store: relationalStore.RdbStore): 
         duration: resultSet.getLong(8)
       });
     }
+  } catch (err) {
+    console.error('查询最新视频失败:', err);
+    throw err;
   } finally {
     resultSet.close();
   }
@@ -627,6 +731,9 @@ export async function getPhotoListByDevice(
         capture_time: resultSet.getLong(4)
       });
     }
+  } catch (err) {
+    console.error('查询照片列表失败:', err);
+    throw err;
   } finally {
     resultSet.close();
   }

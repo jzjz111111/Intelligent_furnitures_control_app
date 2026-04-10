@@ -4,7 +4,9 @@ import { displayFarmland } from '../tool/component';
 import { farmland, Device } from '../tool/classes';
 import { curves } from '@kit.ArkUI';
 import { FarmlandDatabase } from "../data/RdbStorage";
-let Farmland_db: FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
+import common from '@ohos.app.ability.common';
+
+
 
 @Entry
 @Component
@@ -35,7 +37,12 @@ export struct RemoteControlPage {
   @State deleteDeviceName: string = '';
   @State pressedDeleteIndex: number = -1;
 
+  private db: FarmlandDatabase | null = null;
+
   aboutToAppear() {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+
     // ========== 入场动画序列 ==========
     animateTo({ duration: 400, curve: curves.springMotion() }, () => {
       this.headerScale = 1;
@@ -60,10 +67,10 @@ export struct RemoteControlPage {
 
   //删除逻辑
   private async deleteDevice(index: number) {
-    if (!this.farm || !this.farm.device_s) return;
+    if (!this.farm || !this.farm.device_s || !this.db) return;
     const delDevice = this.farm.device_s[index];
-    let r_id = await Farmland_db.getFarmlandsIdByName(this.farm.name);
-    await Farmland_db.deleteDeviceByFarmlandIdAndName(r_id, delDevice.name);
+    let r_id = await this.db.getFarmlandsIdByName(this.farm.name);
+    await this.db.deleteDeviceByFarmlandIdAndName(r_id, delDevice.name);
     this.farm.device_s = this.farm.device_s.filter(
       (element) => element.name !== delDevice.name
     );

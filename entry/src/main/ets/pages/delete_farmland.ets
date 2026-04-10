@@ -1,16 +1,22 @@
 // pages/delete_farmland.ets
-
+import common from '@ohos.app.ability.common';
 import { ThemeColors } from '../utils/theme';
 import { farmland } from '../tool/classes';
 import { FarmlandDatabase } from '../data/RdbStorage';
 
-let Farmland_db: FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 @Entry
 @Component
 struct ConfirmDialog {
   @Link is_show: boolean;
   @Link arr_farmland: farmland[];
   @Link name: string;
+  private db: FarmlandDatabase | null = null;
+
+  aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+  }
+
   build() {
     Stack() {
       Column()
@@ -52,8 +58,10 @@ struct ConfirmDialog {
             .stateEffect(true);
           Button('确认删除')
             .onClick(async () => {
-              await Farmland_db.deleteFarmlandByName(this.name)
-              this.arr_farmland = this.arr_farmland.filter(element => element.name !== this.name);
+              if (this.db) {
+                await this.db.deleteFarmlandByName(this.name)
+                this.arr_farmland = this.arr_farmland.filter(element => element.name !== this.name);
+              }
               animateTo({ duration: 300 }, () => {
                 this.is_show = false;
               });

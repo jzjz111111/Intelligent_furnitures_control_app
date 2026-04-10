@@ -1,4 +1,7 @@
 import relationalStore from '@ohos.data.relationalStore';
+import common from '@ohos.app.ability.common';
+
+
 
 import { temperature_control_device, Device, farmland } from '../tool/classes';
 
@@ -20,7 +23,9 @@ export class FarmlandDatabase {
   private async initDatabase() {
 
     try {
-      this.rdbStore = await relationalStore.getRdbStore(globalThis.getContext(), {
+      // 将第23行的 globalThis.getContext() 改为:
+      const context = getContext(this) as common.UIAbilityContext;
+      this.rdbStore = await relationalStore.getRdbStore(context, {
         name: 'farmland_store.db',
         securityLevel: relationalStore.SecurityLevel.S1
       });

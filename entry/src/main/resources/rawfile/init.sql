@@ -70,9 +70,9 @@ CREATE TABLE IF NOT EXISTS alarm (
 -- ESP32视频存储表
 CREATE TABLE IF NOT EXISTS video (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  device_sn TEXT NOT NULL,        -- ESP32-CAM 序列号
-  zone_id INTEGER,                -- 所属种植区
-  file_path TEXT NOT NULL,        -- 视频在鸿蒙后端的存储路径
+  device_sn TEXT NOT NULL,
+  zone_id INTEGER,
+  file_path TEXT NOT NULL,
   duration INTEGER DEFAULT 0,
   upload_time INTEGER NOT NULL,
   FOREIGN KEY (zone_id) REFERENCES Zone(id)
@@ -81,10 +81,10 @@ CREATE TABLE IF NOT EXISTS video (
 -- 10分钟抓拍照片表
 CREATE TABLE IF NOT EXISTS capture_photo (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  device_sn TEXT NOT NULL,        -- 哪个摄像头抓拍
-  zone_id INTEGER,                -- 所属区域
-  photo_path TEXT NOT NULL,       -- 照片服务器路径
-  capture_time INTEGER NOT NULL,  -- 抓拍时间戳
+  device_sn TEXT NOT NULL,
+  zone_id INTEGER,
+  photo_path TEXT NOT NULL,
+  capture_time INTEGER NOT NULL,
   FOREIGN KEY (zone_id) REFERENCES Zone(id)
 );
 

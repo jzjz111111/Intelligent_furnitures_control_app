@@ -8,6 +8,8 @@ import {
   getUserById,
   getUserByUsername,
   verifyUserLogin,
+  createUser,
+  checkUsernameExists,
   addFarm,
   getFarmList,
   setFarmImage,
@@ -36,6 +38,12 @@ interface LoginResponseData {
   userId: number;
   username: string;
   token?: string;
+}
+
+// 注册请求体
+interface RegisterBody {
+  username: string;
+  password: string;
 }
 // 统一响应接口
 interface ApiResponse<T> {
@@ -222,45 +230,10 @@ interface LatestPhotoResponse {
   path: string;
 }
 
-// Socket 消息信息接口
-interface SocketMessageInfo {
-  message: string | ArrayBuffer;
-  remoteInfo: object;
-}
-
-// 发送数据选项接口
-interface SendOptions {
-  data: ArrayBuffer;
-}
-
-// 服务器监听选项接口
-interface ServerListenOptions {
-  address: string;
-  port: number;
-  backlog: number;
-}
-
-// 通用回调类型（使用 Function 替代 any）
-type GenericCallback = Function;
-
-// TCP 客户端接口
-interface TCPClient {
-  on(event: string, callback: GenericCallback): void;
-  send(options: SendOptions): void;
-  close(): void;
-}
-
-// TCP 服务器接口
-interface TCPServer {
-  listen(options: ServerListenOptions): void;
-  on(event: string, callback: GenericCallback): void;
-  close(): void;
-}
-
 export class MyHttpServer {
   private isRunning: boolean = false;
   private context: Context;
-  private tcpServer: TCPServer | null = null;
+  private tcpServer: socket.TCPSocketServer | null = null;
   private readonly PORT: number = 8080;
 
   constructor(context: Context) {
@@ -268,155 +241,107 @@ export class MyHttpServer {
   }
 
   async startServer(): Promise<void> {
-    if (this.isRunning) return;
+    if (this.isRunning) {
+      console.warn("[服务器] 服务器已在运行中");
+      return;
+    }
 
     try {
-      const serverInstance = socket.constructTCPSocketServerInstance();
-      this.tcpServer = serverInstance as TCPServer;
+      console.log("[服务器] 开始创建 TCP 服务器...");
 
-      const listenOptions: ServerListenOptions = {
-        address: '0.0.0.0',
-        port: this.PORT,
-        backlog: 5
+      this.tcpServer = socket.constructTCPSocketServerInstance();
+
+      this.tcpServer = socket.constructTCPSocketServerInstance();
+
+      this.tcpServer.on('connect', (connection: socket.TCPSocketConnection) => {
+        console.log("🔗 新连接建立");
+
+        connection.on('message', (msg: socket.SocketMessageInfo) => {
+          this.handleMessage(connection , msg);
+        });
+
+        connection.on('close', () => {
+          console.log("🔌 连接关闭");
+        });
+      });
+
+
+      const serverAddress: socket.NetAddress = {
+        address: '127.0.0.1',
+        port: this.PORT
       };
-      this.tcpServer.listen(listenOptions);
+      await this.tcpServer.listen(serverAddress);
 
       this.isRunning = true;
       console.log(`✅ 智慧农业后端服务启动成功，监听端口: ${this.PORT}`);
-      console.log(`📡 访问地址: http://设备 IP:${this.PORT}/api/xxx`);
+      console.log(`📡 访问地址: http://127.0.0.1:${this.PORT}/api/xxx`);
 
-      this.listenForConnections();
+      this.startTimerTasks();
+      console.log("✅ 定时任务已启动");
 
-      setInterval(async () => {
-        try {
-          const store = await openAgriDb(this.context);
-          const videos = await getLatestVideoPerDevice(store);
-          for (const video of videos) {
-            if (!video.device_sn || !video.file_path) continue;
-            const photoPath: string = await this.captureFrame(video.file_path);
-            await addCapturePhoto(store, video.device_sn, video.zone_id, photoPath);
-            console.log(`✅ 抓拍成功：设备${video.device_sn} -> ${photoPath}`);
-          }
-        } catch (err) {
-          console.error("❌ 抓拍失败", err);
-        }
-      }, 10 * 60 * 1000);
-
-      setInterval(() => {
-        const mockLight: number = 3000 + Math.random() * 40000;
-        const body: LightReportBody = {
-          deviceId: "sensor_light_01",
-          light: mockLight
-        };
-        this.getMockResponse("/api/sensor/light/report", body);
-        console.log("[光照] 自动采集:", mockLight.toFixed(0) + " lux");
-      }, 8000);
-
-      try {
-        const testCmd: HardwareControlCommand = {
-          serviceId: "env_sensor",
-          commandName: "dev_ctrl",
-          paras: {
-            led1: 3,
-            led2: 3,
-            led3: 3,
-            spray: 0
-          }
-        };
-        this.getMockResponse("/api/control/send", testCmd);
-
-        console.log("自动测试硬件指令完成！");
-      } catch (err) {
-        console.error("硬件测试失败", err);
-      }
     } catch (err) {
       const error = err as BusinessError;
       console.error("❌ 服务器启动失败:", error.message);
-
+      console.error("❌ 错误码:", error.code);
+      throw new Error(`HTTP 服务器启动失败: ${error.message}`);
     }
   }
 
-  private async listenForConnections(): Promise<void> {
-    if (!this.tcpServer) return;
-
+  private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
     try {
-      const connectionCallback: GenericCallback = (client: TCPClient) => {
-        console.log('🔗 新连接建立');
+      const data: ArrayBuffer | string = msgInfo.message;
+      let requestStr = '';
 
-        const messageCallback: GenericCallback = (msgInfo: SocketMessageInfo) => {
-          const data = msgInfo.message;
-          try {
-            const requestStr = typeof data === 'string' ? data : buffer.from(data).toString();
-            console.log('📨 收到请求:', requestStr.substring(0, 200));
+      if (data instanceof ArrayBuffer) {
+        requestStr = buffer.from(data).toString('utf-8');
+      } else if (typeof data === 'string') {
+        requestStr = data;
+      }
 
-            this.handleHttpRequest(requestStr).then((response) => {
-              const responseBytes = buffer.from(response, 'utf-8');
-              const sendOptions: SendOptions = {
-                data: responseBytes.buffer
-              };
-              client.send(sendOptions);
-              console.log('📤 响应已发送');
-            }).catch((err:Error) => {
-              const error = err as BusinessError;
-              console.error('❌ 处理请求失败:', error.message);
-              const errorMsg = this.fail('服务器内部错误');
-              const errorBytes = buffer.from(errorMsg, 'utf-8');
-              const errorSendOptions: SendOptions = {
-                data: errorBytes.buffer
-              };
-              client.send(errorSendOptions);
-            });
-          } catch (err) {
-            const error = err as BusinessError;
-            console.error('❌ 解析请求失败:', error.message);
-          }
-        };
-        client.on('message', messageCallback);
+      console.log("📨 收到请求:", requestStr.substring(0, 100));
 
-        const closeCallback: GenericCallback = () => {
-          console.log('🔌 连接关闭');
-        };
-        client.on('close', closeCallback);
+      if (!requestStr) {
+        console.warn("⚠️ 空请求，忽略");
+        return;
+      }
 
-        const errorCallback: GenericCallback = (err: BusinessError) => {
-          console.error('❌ 连接错误:', err.message);
-        };
-        client.on('error', errorCallback);
-      };
-      this.tcpServer.on('connection', connectionCallback);
+      const self = this;
+      this.handleHttpRequest(requestStr).then((responseStr: string): void => {
+        const responseBuffer: ArrayBuffer = buffer.from(responseStr).buffer;
+        connection.send({ data: responseBuffer });
+        console.log("✅ 响应已发送");
+      }).catch((err: Error): void => {
+        console.error("❌ 处理请求失败", err);
+        const errorResponse: string = self.buildHttpResponse(self.fail("服务器内部错误"), 500);
+        connection.send({ data: buffer.from(errorResponse).buffer });
+      });
 
-      const serverErrorCallback: GenericCallback = (err: BusinessError) => {
-        console.error('❌ 服务器错误:', err.message);
-      };
-      this.tcpServer.on('error', serverErrorCallback);
-
-    } catch (err) {
-      const error = err as BusinessError;
-      console.error('❌ 监听连接失败:', error.message);
+    } catch (e) {
+      console.error("❌ 消息处理异常", e);
     }
   }
 
   private async handleHttpRequest(requestStr: string): Promise<string> {
-    const lines = requestStr.split('\r\n');
+    const lines: string[] = requestStr.split('\r\n');
     if (lines.length === 0) {
       return this.buildHttpResponse(this.fail('无效请求'), 400);
     }
 
-    const requestLine = lines[0];
-    const parts = requestLine.split(' ');
+    const requestLine: string = lines[0];
+    const parts: string[] = requestLine.split(' ');
     if (parts.length < 2) {
       return this.buildHttpResponse(this.fail('无效请求行'), 400);
     }
 
-    const method = parts[0];
-    const fullPath = parts[1];
-    const path = fullPath.split('?')[0];
+    const method: string = parts[0];
+    const fullPath: string = parts[1];
+    const path: string = fullPath.split('?')[0];
 
     let body: object | undefined = undefined;
 
-    const emptyLineIndex = lines.findIndex(line => line.trim() === '');
+    const emptyLineIndex: number = lines.findIndex((line: string): boolean => line.trim() === '');
     if (emptyLineIndex !== -1 && emptyLineIndex < lines.length - 1) {
-      const bodyStr = lines.slice(emptyLineIndex + 1).join('\r\n');
+      const bodyStr: string = lines.slice(emptyLineIndex + 1).join('\r\n');
       if (bodyStr.trim()) {
         try {
           body = JSON.parse(bodyStr);
@@ -432,8 +357,7 @@ export class MyHttpServer {
     try {
       responseData = await this.getMockResponse(path, body);
     } catch (err) {
-      const error = err as BusinessError;
-      console.error('❌ 路由处理失败:', error.message);
+      console.error('❌ 路由处理失败:', err);
       responseData = this.fail('接口处理失败');
     }
 
@@ -441,9 +365,9 @@ export class MyHttpServer {
   }
 
   private buildHttpResponse(body: string, statusCode: number = 200): string {
-    const statusText = statusCode === 200 ? 'OK' : 'Bad Request';
-    const bodyLength = buffer.from(body, 'utf-8').length;
-    const headers = [
+    const statusText: string = statusCode === 200 ? 'OK' : 'Bad Request';
+    const bodyLength: number = buffer.from(body, 'utf-8').length;
+    const headers: string[] = [
       'HTTP/1.1 ' + statusCode + ' ' + statusText,
       'Content-Type: application/json; charset=utf-8',
       'Access-Control-Allow-Origin: *',
@@ -456,6 +380,17 @@ export class MyHttpServer {
     ];
 
     return headers.join('\r\n') + body;
+  }
+
+  /**
+   * 启动定时任务（光照自动采集等）
+   */
+  private startTimerTasks(): void {
+    // 光照自动采集 - 每8秒一次
+    setInterval(() => {
+      const randomLight = Math.floor(Math.random() * 50000) + 1000;
+      console.log(`[光照] 自动采集: ${randomLight} lux`);
+    }, 8000);
   }
 
   stopServer(): void {
@@ -571,25 +506,74 @@ export class MyHttpServer {
   }
 
   async getMockResponse(path: string, body?: object): Promise<string> {
+    // 注册接口
+    if (path === "/api/user/register" && body) {
+      try {
+        const b: RegisterBody = body as RegisterBody;
+
+        if (!b.username || !b.password) {
+          return JSON.stringify({ code: 400, msg: "用户名和密码不能为空" });
+        }
+
+        const store = await openAgriDb(this.context);
+        const exists = await checkUsernameExists(store, b.username);
+
+        if (exists) {
+          return JSON.stringify({ code: 409, msg: "用户名已存在" });
+        }
+
+        await createUser(store, b.username, b.password);
+
+        const result: CommonResponse = { message: "注册成功" };
+        return this.success(result);
+      } catch (err) {
+        console.error("注册处理失败", err);
+        return this.fail("注册失败");
+      }
+    }
+
+    // 检查用户名是否已存在
+    if (path === "/api/user/checkUsername") {
+      try {
+        const username: string | null = this.getQueryParam(path, "username");
+        if (!username) {
+          return JSON.stringify({ code: 400, msg: "用户名不能为空" });
+        }
+
+        const store = await openAgriDb(this.context);
+        const exists = await checkUsernameExists(store, username);
+
+        if (exists) {
+          return JSON.stringify({ code: 409, msg: "用户名已存在" });
+        }
+
+        const result: CommonResponse = { message: "用户名可用" };
+        return this.success(result);
+      } catch (err) {
+        console.error("检查用户名失败", err);
+        return this.fail("检查失败");
+      }
+    }
+
+    // 登录接口
     if (path === "/api/user/login" && body) {
       try {
         const b: LoginBody = body as LoginBody;
 
         if (!b.username || !b.password) {
-          return this.fail("用户名和密码不能为空");
+          return JSON.stringify({ code: 400, msg: "用户名和密码不能为空" });
         }
 
         const store = await openAgriDb(this.context);
         const loginResult = await verifyUserLogin(store, b.username, b.password);
 
         if (!loginResult.success) {
-          return this.fail(loginResult.message || "登录失败");
+          return JSON.stringify({ code: 401, msg: loginResult.message || "用户名或密码错误" });
         }
 
         const res: LoginResponseData = {
           userId: loginResult.userId!,
-          username: loginResult.username!,
-          token: `token_${loginResult.userId}_${Date.now()}`
+          username: loginResult.username!
         };
 
         return this.success(res);
@@ -598,7 +582,6 @@ export class MyHttpServer {
         return this.fail("登录失败");
       }
     }
-
 
     if (path === "/api/esp32/uploadVideo" && body) {
       try {
@@ -981,6 +964,7 @@ export class MyHttpServer {
       }
     }
 
-    return this.fail("接口不存在");
+
+    return JSON.stringify({ code: 404, msg: "接口不存在" });
   }
 }

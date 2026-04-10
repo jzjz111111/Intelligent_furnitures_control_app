@@ -4,6 +4,19 @@ import cryptoFramework from '@ohos.security.cryptoFramework';
 import common from '@ohos.app.ability.common';
 import util from '@ohos.util';
 import { ThemeColors } from '../utils/theme';
+import http from '@ohos.net.http';
+import { BusinessError } from '@kit.BasicServicesKit';
+
+interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+interface ServerResponse {
+  code: number;
+  data: object | null;
+  msg: string;
+}
 
 @Entry
 @Component
@@ -154,11 +167,6 @@ struct RegisterPage {
             this.isRegistering = true;
             this.isRegisterButtonClicked = true;
             try {
-              const isUnique = await this.checkUsernameUnique();
-              if (!isUnique) {
-                this.showCustomToast('用户名已被注册', 'error');
-                return;
-              }
               await this.handleRegister();
             } finally {
               this.isRegistering = false;
@@ -248,18 +256,28 @@ struct RegisterPage {
   }
 
   private async checkUsernameUnique(): Promise<boolean> {
-    if (!this.userPreferences) {
-      this.showCustomToast('系统未初始化', 'error');
-      return false;
-    }
-
     try {
-      const users = await this.userPreferences.get('user_list', '[]') as string;
-      const userList: string[] = JSON.parse(users);
-      return !userList.includes(this.username);
+      const url = "http://127.0.0.1:8080/api/user/checkUsername?username=" + encodeURIComponent(this.username);
+      let httpRequest = http.createHttp();
+      try {
+        let response = await httpRequest.request(url, {
+          method: http.RequestMethod.GET,
+          connectTimeout: 5000,
+          readTimeout: 5000
+        });
+
+        if (response.responseCode !== 200) {
+          return true;
+        }
+
+        let result = JSON.parse(response.result as string) as ServerResponse;
+        return result.code === 200;
+      } finally {
+        httpRequest.destroy();
+      }
     } catch (error) {
-      this.showCustomToast('用户查询失败', 'error');
-      return false;
+      console.error('检查用户名失败:', error);
+      return true;
     }
   }
 
@@ -275,31 +293,73 @@ struct RegisterPage {
         .map((b: number) => b.toString(16).padStart(2, '0'))
         .join('');
     } catch (error) {
-      throw new Error('密码加密失败: ' + error.message);
+      throw new Error('密码加密失败: ' + (error as Error).message);
     }
   }
 
   private async handleRegister() {
+    this.isRegistering = true;
+
     try {
-      if (!this.userPreferences) return;
-
-      if (!await this.checkUsernameUnique()) return;
-
       const encryptedPwd = await this.encryptPassword(this.password);
 
-      const users = await this.userPreferences.get('user_list', '[]') as string;
-      const userList: string[] = JSON.parse(users);
-      userList.push(this.username);
-      await this.userPreferences.put('user_list', JSON.stringify(userList) as preferences.ValueType);
+      const url: string = "http://127.0.0.1:8080/api/user/register";
+      console.log('[注册] 开始发送请求:', url);
+      console.log('[注册] 请求参数:', JSON.stringify({ username: this.username }));
 
-      await this.userPreferences.put(`user_${this.username}`, encryptedPwd as preferences.ValueType);
-      await this.userPreferences.flush();
+      const postData: RegisterRequest = {
+        username: this.username,
+        password: encryptedPwd
+      };
 
-      this.showCustomToast('注册成功！', 'success');
-      setTimeout(() => router.replaceUrl({ url: 'pages/Open' }), 1000);
+      const httpRequest = http.createHttp();
+      try {
+        const response = await httpRequest.request(url, {
+          method: http.RequestMethod.POST,
+          header: {
+            "Content-Type": "application/json"
+          },
+          extraData: JSON.stringify(postData),
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
 
+        console.log('[注册] 收到响应，状态码:', response.responseCode);
+
+        if (response.responseCode !== 200) {
+          this.showCustomToast(`服务器异常 (${response.responseCode})`, "error");
+          return;
+        }
+
+        const result = JSON.parse(response.result as string) as ServerResponse;
+        console.log('[注册] 响应数据:', JSON.stringify(result));
+
+        if (result.code !== 200) {
+          this.showCustomToast(result.msg || "注册失败", "error");
+          return;
+        }
+
+        this.showCustomToast('注册成功！', 'success');
+        console.log('[注册] 注册成功，跳转到登录页');
+        setTimeout(() => router.replaceUrl({ url: 'pages/Open' }), 1000);
+      } finally {
+        httpRequest.destroy();
+      }
     } catch (error) {
-      this.showCustomToast(`注册失败: ${error.message}`, 'error');
+      const e = error as BusinessError;
+      console.error('[注册] 请求异常:', e.message);
+      console.error('[注册] 错误码:', e.code);
+      console.error('[注册] 完整错误:', JSON.stringify(e));
+
+      if (e.code === 13900042 || e.message.includes('Timeout')) {
+        this.showCustomToast("网络连接超时，请检查后端服务是否启动", "error");
+      } else if (e.message.includes('Connection refused')) {
+        this.showCustomToast("无法连接到服务器，请确认服务器已启动", "error");
+      } else {
+        this.showCustomToast(`注册失败: ${e.message}`, 'error');
+      }
+    } finally {
+      this.isRegistering = false;
     }
   }
 }

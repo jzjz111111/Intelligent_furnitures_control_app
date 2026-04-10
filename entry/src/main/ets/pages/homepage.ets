@@ -1,5 +1,5 @@
 // pages/homepage.ets
-
+import http from '@ohos.net.http';
 import { McLineChart, Options } from '@mcui/mccharts';
 import util from '@ohos.util';
 import router from '@ohos.router';
@@ -7,8 +7,6 @@ import { temperature_control_device, Device, farmland } from '../tool/classes';
 import { displayFarmland, my_DeepSeek, add_farmland_page, AccountSetting, AboutProject, ControlLights, ControlWaterValve, ControlTemp } from '../tool/component';
 import { LocalStorage } from '../data/LocalStorage';
 import { _Udp } from '../tool/UDP';
-import { Data_Tcp, _Tcp } from '../tool/TCP';
-import { Farmland_db, tcp } from './Index';
 import socket from '@ohos.net.socket';
 import wifi from '@ohos.wifi';
 import { notificationManager } from '@kit.NotificationKit';
@@ -29,12 +27,23 @@ import { Datamodel, WarnHistoryItem, EnvStatusResult, getEnvStatus, resolveIP, m
 import { delete_farmland } from './delete_farmland';
 import { detail_data } from './detail_data';
 import { RemoteControlPage } from './RemoteControlPage';
+import { FarmlandDatabase } from '../data/RdbStorage';
 
 type Context = common.UIAbilityContext;
 let DATA_IoTda: string = ''
 let Data_Id_me: string = ''
 const TAG: string = '[PublishOperation]';
 const DOMAIN_NUMBER: number = 0xFF00;
+
+// 定义传感器数据的接口类型
+type SensorData = Record<string, Object>;
+
+interface WarnHistoryResponseItem {
+  alarmType: string;
+  message: string;
+  createTime: string;
+}
+
 
 @Entry
 @Component
@@ -118,8 +127,6 @@ export struct homepage {
     }]
   })
 
-  private localAddr: socket.NetAddress | null = null
-  private mixerAddr: socket.NetAddress | null = null
 
   @State _h_detail: string = '0%'
   @State num1: string = '';
@@ -157,19 +164,17 @@ export struct homepage {
   @State highlightedFarmKey: string = '';
   @State pulseEnvType: string = '';
 
+  private db: FarmlandDatabase | null = null;
+
   async aboutToAppear() {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+
     this.requestLocation()
-    this.localAddr = {
-      family: 1,
-      port: 8889,
-      address: resolveIP(wifi.getIpInfo().ipAddress)
-    }
-    this.mixerAddr = {
-      address: '192.168.191.19',
-      port: 8889
-    }
+
     setTimeout(async () => {
-      let farmlandList: farmland[] = await Farmland_db.getAllFarmlands()
+      if (!this.db) return;
+      let farmlandList: farmland[] = await this.db.getAllFarmlands()
       if (farmlandList.length == 0) {
         AlertDialog.show({
           message: "还没有农田哦，快去录入吧~",
@@ -177,12 +182,10 @@ export struct homepage {
           offset: { dx: 0, dy: -20 }
         })
       }
-      for (let item of await Farmland_db.getAllFarmlands()) {
+      for (let item of await this.db.getAllFarmlands()) {
         this.arr_farmland.push(item)
       }
       setTimeout(async () => {
-        await tcp.getData()
-        this.analyze_data(Data_Tcp)
         await _IoTad.get_data()
         await this.new_analyze_data(DATA_new)
         Data_Id_me = Data_id_yun
@@ -193,18 +196,24 @@ export struct homepage {
           await this.new_analyze_data(DATA_IoTda)
         }
       }, 1000)
+      this.loadWarnHistoryFromBackend();
+      setTimeout(() => {
+        this.loadWarnHistoryFromBackend();
+      }, 2000);
     }, 100)
     this.setGreetingByTime();
+
   }
 
   async judge(temp?: number, humi?: number, co2?: number) {
     let title: string = ''
     if (temp != null) {
       if (temp > max_temp) {
+        if (!this.db) return;
         let paramInfo: Datamodel = {
           type: "temp",
           data: temp,
-          arr: await Farmland_db.getAllFarmlands()
+          arr: await this.db.getAllFarmlands()
         }
         this.warn_data = paramInfo
         this.is_warn = true
@@ -219,14 +228,16 @@ export struct homepage {
           data: temp,
           time: new Date().toLocaleString()
         });
+        this.saveWarnToBackend("temp", temp, title);
       }
     }
     if (humi != null) {
       if (humi > max_humi) {
+        if (!this.db) return;
         let paramInfo: Datamodel = {
           type: "humi",
           data: humi,
-          arr: await Farmland_db.getAllFarmlands()
+          arr: await this.db.getAllFarmlands()
         }
         this.warn_data = paramInfo
         this.is_warn = true
@@ -241,16 +252,18 @@ export struct homepage {
           data: humi,
           time: new Date().toLocaleString()
         });
+        this.saveWarnToBackend("humi", humi, title);
         this.pulseEnvType = 'humi'
         setTimeout(() => { this.pulseEnvType = '' }, 900)
       }
     }
     if (co2 != null) {
       if (co2 > max_co2) {
+        if (!this.db) return;
         let paramInfo: Datamodel = {
           type: "co2",
           data: co2,
-          arr: await Farmland_db.getAllFarmlands()
+          arr: await this.db.getAllFarmlands()
         }
         this.warn_data = paramInfo
         this.is_warn = true
@@ -265,6 +278,7 @@ export struct homepage {
           data: co2,
           time: new Date().toLocaleString()
         });
+        this.saveWarnToBackend("co2", co2, title);
         this.pulseEnvType = 'co2'
         setTimeout(() => { this.pulseEnvType = '' }, 900)
       }
@@ -289,6 +303,61 @@ export struct homepage {
       hilog.info(DOMAIN_NUMBER, TAG, 'Succeeded in publishing notification.');
     });
   }
+  // ... existing code ...
+  async saveWarnToBackend(type: string, data: number, title: string) {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    try {
+      const url = 'http://127.0.0.1:8080/api/alarm/add';
+      const body = JSON.stringify({
+        deviceId: "iot_sensor_001",
+        alarmType: type,
+        level: "WARNING",
+        message: `${title}: ${data}`
+      });
+
+      const response: http.HttpResponse = await httpRequest.request(url, {
+        method: http.RequestMethod.POST,
+        header: { 'Content-Type': 'application/json' },
+        extraData: body
+      });
+
+      console.log("告警已保存到后端:", response.result.toString());
+    } catch (err) {
+      console.error("保存告警到后端失败:", err);
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+  async loadWarnHistoryFromBackend() {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    try {
+      const url = 'http://127.0.0.1:8080/api/alarm/list';
+      const response: http.HttpResponse = await httpRequest.request(url, {
+        method: http.RequestMethod.GET
+      });
+      const result: Record<string, Object | WarnHistoryResponseItem[]> = JSON.parse(response.result.toString());
+      if (result.code === 200 && Array.isArray(result.data)) {
+        const dataArray: WarnHistoryResponseItem[] = result.data as WarnHistoryResponseItem[];
+        this.globalWarnHistory = dataArray.map((item: WarnHistoryResponseItem) => {
+          const warnItem: WarnHistoryItem = {
+            typeText: `${item.alarmType}警告`,
+            data: parseFloat(item.message.split(": ")[1] || "0"),
+            time: item.createTime
+          };
+          return warnItem;
+        });
+        this.currentFarmWarnHistory = [...this.globalWarnHistory];
+        console.log("已从后端加载告警历史:", this.globalWarnHistory.length, "条");
+      }
+
+    } catch (err) {
+      console.error("加载告警历史失败:", err);
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
+
   async requestLocation() {
     const permissions: Array<Permissions> = ['ohos.permission.LOCATION', 'ohos.permission.APPROXIMATELY_LOCATION'];
     const atManager = abilityAccessCtrl.createAtManager();
@@ -341,7 +410,9 @@ export struct homepage {
       console.error('逆地理编码失败', err);
     }
   }
-  analyze_data(data: string) {
+  //co2
+  //analyze_data 是解析TCP数据格式的函数，要注释掉
+  /*analyze_data(data: string) {
     let arr: string[] = data.split("/")
     for (let item of arr) {
       let values: string = JSON.parse(item)
@@ -373,37 +444,45 @@ export struct homepage {
         this.arr_farmland = new_arr_farmland
       }
     }
-  }
-
+  }*/
+//co2
   async new_analyze_data(data: string) {
-    let values: string = JSON.parse(data)
-    if (typeof values?.["temperature"] != "undefined") {
-      this.temp = values?.["temperature"]
-      this.humi = values?.["humidity"]
-      this.co2 = "1900"
+    const values: Record<string, Object> = JSON.parse(data)
+    const tempVal = values["temperature"];
+    const humiVal = values["humidity"];
+    const co2Val = values["co2"];
+
+    if (tempVal != undefined) {
+      this.temp = tempVal?.toString() || ""
+      this.humi = humiVal?.toString() || ""
+      this.co2 = co2Val != undefined ? co2Val.toString() : "--"
+
       this.judge(Number(this.temp), Number(this.humi), Number(this.co2))
       let new_arr_farmland: farmland[] = []
       for (let r of this.arr_farmland) {
         let new_arr_f: Device[] = []
         for (let f of r.device_s) {
-          if (typeof values?.[f.type_id.toString()] != "undefined") {
-            let new_v: string = values?.[f.type_id.toString()]
-            new_v = JSON.parse(new_v)
+          const deviceId = f.type_id.toString();
+          const deviceVal = values[deviceId];
+
+          if (deviceVal != undefined) {
             if (f.type_id < 999) {
-              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
+              f = new Device(f.name, Number(deviceVal) || 0, f.type_id)
             } else if (f.type_id < 1999) {
-              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
-              f.lighting = (values?.["brightness"]) / 1000
+              f = new Device(f.name, Number(deviceVal) || 0, f.type_id)
+              f.lighting = Number(values["brightness"]) / 1000
             } else if (f.type_id < 2999) {
-              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
+              f = new Device(f.name, Number(deviceVal) || 0, f.type_id)
             } else if (f.type_id < 3999 && f.type_id > 3000) {
-              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
-              f.temp = Number(values?.[f.type_id.toString() + "_2"])
-              f.mode = values?.[f.type_id.toString() + "_3"]
+              f = new Device(f.name, Number(deviceVal) || 0, f.type_id)
+              f.temp = Number(values[deviceId + "_2"]) || 0
+              const modeVal = values[deviceId + "_3"]?.toString() || "zd"
+              f.mode = (modeVal === "zd" || modeVal === "cs" || modeVal === "zl" || modeVal === "zr") ? modeVal : "zd"
             } else {
-              f = new Device(f.name, values?.[f.type_id.toString()], f.type_id)
+              f = new Device(f.name, Number(deviceVal) || 0, f.type_id)
             }
           }
+
           new_arr_f.push(f)
         }
         new_arr_farmland.push(new farmland(r.name, new_arr_f))
@@ -412,24 +491,25 @@ export struct homepage {
     }
   }
 
+
   @Builder
-  MenuBar() {
-    Menu() {
-      MenuItem() {
-        Text('添加农田').fontColor(ThemeColors.textPrimary).fontSize(14).fontWeight(FontWeight.Bold)
-      }.onClick(() => {
-        this.is_show_r = true
-      })
-      MenuItem() {
-        Text("删除农田").fontColor(ThemeColors.danger).fontSize(14).fontWeight(FontWeight.Bold)
-      }.onClick(() => {
-        animateTo({ duration: 500 }, () => { this.is_delete_h = "90%" })
-      })
-    }
-    .fontColor(ThemeColors.textPrimary)
-    .backgroundColor(ThemeColors.bgCard)
-    .border({ width: 1, color: ThemeColors.borderLight })
-    .shadow({ color: ThemeColors.shadowDark, radius: 12, offsetX: 0, offsetY: 6 })
+    MenuBar() {
+      Menu() {
+        MenuItem() {
+          Text('添加农田').fontColor(ThemeColors.textPrimary).fontSize(14).fontWeight(FontWeight.Bold)
+        }.onClick(() => {
+          this.is_show_r = true
+        })
+        MenuItem() {
+          Text("删除农田").fontColor(ThemeColors.danger).fontSize(14).fontWeight(FontWeight.Bold)
+        }.onClick(() => {
+          animateTo({ duration: 500 }, () => { this.is_delete_h = "90%" })
+        })
+      }
+      .fontColor(ThemeColors.textPrimary)
+      .backgroundColor(ThemeColors.bgCard)
+      .border({ width: 1, color: ThemeColors.borderLight })
+      .shadow({ color: ThemeColors.shadowDark, radius: 12, offsetX: 0, offsetY: 6 })
   }
 
   // ... 保留其他所有代码不变，仅修改以下两个 Builder ...
@@ -817,7 +897,7 @@ export struct homepage {
           serOption_co2: this.serOption_co2
         })
       }
-
+//预警UI框架
       if (this.showWarnHistoryPanel) {
         Column() {
           Row() {

@@ -1,6 +1,6 @@
 import { LocalStorage } from "../data/LocalStorage";
 import { FarmlandDatabase } from "../data/RdbStorage";
-import { tcp } from "../pages/Index";
+//import { tcp } from "../pages/Index";
 import { API_DeepSeek } from "../pages/OpenAI_Page";
 import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "./classes";
@@ -87,7 +87,7 @@ struct device_edit{
               this.device.lighting = value
               this.Light_number = value
               console.log("LL:"+this.Light_number.toString())
-              tcp.sendLED_chang(value,this.device.type_id)
+              //tcp.sendLED_chang(value,this.device.type_id)
               this.o_f = this.device
               //udp.sendLED_chang(value)
             })

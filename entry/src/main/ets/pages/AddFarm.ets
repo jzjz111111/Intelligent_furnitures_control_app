@@ -3,6 +3,7 @@ import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "../tool/classes";
 import picker from '@ohos.file.picker';
 import { ThemeColors } from '../utils/theme';
+import common from '@ohos.app.ability.common';
 
 let new_arr_farmlands:farmland[]
 let new_arr_f:Device[]
@@ -16,6 +17,13 @@ export struct add_farmland_page {
   @State dev_name: string = ''
   @Link is_show: boolean
   @State avatarUri: string = ''
+
+  private db: FarmlandDatabase | null = null;
+
+  aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+  }
 
   build() {
 
@@ -56,8 +64,8 @@ export struct add_farmland_page {
             .backgroundColor(ThemeColors.primary)
             .fontColor(ThemeColors.bgCard)
             .onClick(async () => {
-              if (this.dev_name != '') {
-                let success = await Farmland_db.insertFarmland(new farmland(this.dev_name, [],this.avatarUri))
+              if (this.dev_name != '' && this.db) {
+                let success = await this.db.insertFarmland(new farmland(this.dev_name, [],this.avatarUri))
                 if(success != -1){
                   setTimeout(()=>{
                     this.arr.push(new farmland(this.dev_name, [],this.avatarUri))

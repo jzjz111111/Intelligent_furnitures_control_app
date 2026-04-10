@@ -1,4 +1,4 @@
-import { tcp } from "./Index";
+//import { tcp } from "./Index";
 import { _IoTad } from "./scan_devices";
 import {  Device, farmland } from "../tool/classes";
 import { ThemeColors } from '../utils/theme';
@@ -287,8 +287,8 @@ struct MySlider{
           this.lighting = value;
           for (let f of this._farmland.device_s) {
             if (f.type_id > 999 && f.type_id < 2000) {
-              await tcp.sendLED_chang(value, f.type_id);
-              tcp.getData();
+              //await tcp.sendLED_chang(value, f.type_id);
+              //tcp.getData();
             }
           }
           this.bulbColor = this.calculateBulbColor(this.lighting)

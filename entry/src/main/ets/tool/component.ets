@@ -2,6 +2,7 @@ import { FarmlandDatabase } from "../data/RdbStorage";
 import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "./classes";
 import { ThemeColors } from '../utils/theme';
+import common from '@ohos.app.ability.common';
 
 let new_arr_farmlands:farmland[]
 let new_arr_f:Device[]
@@ -64,9 +65,11 @@ export struct myList {
   @Link showList: boolean;
   @State this_d:Device = new Device('',0,1)
   @State is_change:boolean = true
+  private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {
-
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
   }
   aboutToDisappear(): void {
     this.farmland1.device_s = this.arr_dev
@@ -143,7 +146,9 @@ export struct myList {
           Row(){
             Button("+")
               .onClick(async () => {
-                new_f_R_Id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
+                if (this.db) {
+                  new_f_R_Id = await this.db.getFarmlandsIdByName(this.farmland1.name)
+                }
                 this.show_add = true
                 animateTo({duration:200},()=>{
                   this._height = "100%"
@@ -220,10 +225,13 @@ export struct device_long {
   @State is_c:boolean = true
   @State o_f:Device = new Device('',0,0)
   @Link t_f:Device
+  private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {
     this.Light_number = this.arr_f[this.index_d].lighting
     this.o_f = this.arr_f[this.index_d]
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
   }
   build() {
     Stack() {
@@ -245,9 +253,10 @@ export struct device_long {
         Row(){
           Button('删除')
             .onClick(async ()=>{
-              let r_id = await Farmland_db.getFarmlandsIdByName(this.farmland1.name)
+              if (!this.db) return;
+              let r_id = await this.db.getFarmlandsIdByName(this.farmland1.name)
 
-              await Farmland_db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
+              await this.db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
               this.arr_f = this.arr_f.filter((element) => element.name!== this.arr_f[this.index_d].name);
               this.is_chang = !this.is_chang
               this.is_show_d = false
@@ -334,6 +343,12 @@ export struct add_device_page {
   @Link is_show: boolean
   @State dev_name: string = ''
   type: number = 0
+  private db: FarmlandDatabase | null = null;
+
+  aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+  }
 
   build() {
     Stack() {
@@ -363,8 +378,8 @@ export struct add_device_page {
           .backgroundColor(ThemeColors.primary)
           .fontColor(ThemeColors.bgCard)
           .onClick(async () => {
-            if (this.dev_name != '' && this.type != 0) {
-              let success = await Farmland_db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
+            if (this.dev_name != '' && this.type != 0 && this.db) {
+              let success = await this.db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
               if (success == 1) {
                 const newDevice = new Device(this.dev_name, 0, this.type)
                 this.arr = [...this.arr, newDevice]

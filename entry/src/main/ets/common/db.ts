@@ -1,5 +1,6 @@
 import relationalStore from '@ohos.data.relationalStore';
 import fileio from '@ohos.fileio';
+import fs from '@ohos.file.fs';
 
 const DB_NAME = 'agri.db';
 
@@ -305,14 +306,27 @@ export async function verifyUserLogin(
 // 执行初始化SQL文件
 export async function runInitSql(store: relationalStore.RdbStore, context: any) {
   try {
-    const d = context.resourceManager.getRawFileDescriptor('init.sql');
-    const stat = fileio.fstatSync(d.fd);
-    const buf = new ArrayBuffer(stat.size);
-    fileio.readSync(d.fd, buf);
-    const sql = String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)) as any);
-    const stmts = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    const resourceManager = context.resourceManager;
+
+    // 获取文件描述符
+    const fileDescriptor = resourceManager.getRawFileDescriptor('init.sql');
+    const fd = fileDescriptor.fd;
+    const length = fileDescriptor.length;
+
+    // 读取文件内容
+    const buf = new ArrayBuffer(length);
+    fileio.readSync(fd, buf, { offset: 0, length: length });
+
+    // 将 ArrayBuffer 转为字符串
+    const uint8Array: Uint8Array = new Uint8Array(buf);
+    const sql: string = String.fromCharCode.apply(null, Array.from(uint8Array) as any);
+
+    // 分割并执行 SQL 语句
+    const stmts: string[] = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
     for (const s of stmts) {
-      await store.executeSql(s);
+      if (s.length > 0) {
+        await store.executeSql(s);
+      }
     }
   } catch (e) {
     console.error('执行init.sql失败:', e);
@@ -473,6 +487,69 @@ export async function addFarm(
     throw err;
   }
 }
+
+// 删除农田（包括图片和关联设备）
+export async function deleteFarm(
+  store: relationalStore.RdbStore,
+  zoneId: number
+): Promise<boolean> {
+  try {
+    // 1. 先查询农田信息，获取图片路径
+    const predicates = new relationalStore.RdbPredicates('Zone');
+    predicates.equalTo('id', zoneId);
+    const resultSet = await store.query(predicates, ['id', 'image_path']);
+
+    let imagePath = '';
+    if (resultSet && !resultSet.isClosed && resultSet.goToFirstRow()) {
+      imagePath = resultSet.getString(resultSet.getColumnIndex('image_path'));
+    }
+    resultSet?.close();
+
+    // 2. 删除关联的设备
+    const devicePredicates = new relationalStore.RdbPredicates('Device');
+    devicePredicates.equalTo('zone_id', zoneId);
+    await store.delete(devicePredicates);
+
+    // 3. 删除农田记录
+    const zonePredicates = new relationalStore.RdbPredicates('Zone');
+    zonePredicates.equalTo('id', zoneId);
+    const result = await store.delete(zonePredicates);
+
+    // 4. 删除图片文件（如果存在）
+    if (imagePath && imagePath.length > 0) {
+      try {
+        if (await fs.access(imagePath)) {
+          await fs.unlink(imagePath);
+          console.log('✅ 农田图片已删除:', imagePath);
+        }
+      } catch (err) {
+        console.error('⚠️ 删除农田图片失败:', err);
+      }
+    }
+
+    return result > 0;
+  } catch (err) {
+    console.error('删除农田失败:', err);
+    throw err;
+  }
+}
+
+// 删除设备
+export async function deleteDevice(
+  store: relationalStore.RdbStore,
+  deviceId: number
+): Promise<boolean> {
+  try {
+    const predicates = new relationalStore.RdbPredicates('Device');
+    predicates.equalTo('id', deviceId);
+    const result = await store.delete(predicates);
+    return result > 0;
+  } catch (err) {
+    console.error('删除设备失败:', err);
+    throw err;
+  }
+}
+
 
 // 获取农田列表（带图片）
 export interface FarmZone {

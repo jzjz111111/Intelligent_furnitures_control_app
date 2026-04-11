@@ -1,8 +1,6 @@
 import relationalStore from '@ohos.data.relationalStore';
 import common from '@ohos.app.ability.common';
-
-
-
+import { deleteFarm } from '../../common/api/HttpApi';
 import { temperature_control_device, Device, farmland } from '../tool/classes';
 
 
@@ -32,18 +30,20 @@ export class FarmlandDatabase {
       // 创建 Device 表
       this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Device (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, switch INTEGER,farmlandId INTEGER,type_id INTEGER UNIQUE)');
       // 创建 Farmland 表
-      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Farmland (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)');
+      this.rdbStore.executeSql('CREATE TABLE IF NOT EXISTS Farmland (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE,zoneId INTEGER DEFAULT 0, avatar TEXT DEFAULT "")');
       console.log('Database initialized and table created.');
     } catch (err) {
       console.error(`Failed to initialize database: ${err.message}`);
     }
   }
 
-  // 插入书籍数据
+  // 插入农田数据
   async insertFarmland(farmland: farmland) {
     try {
       const farmlandId = await this.rdbStore?.insert(this.TABLE_NAME, {
-        'name': farmland.name
+        'name': farmland.name,
+        'zoneId': farmland.zoneId,  // 新增：保存 zoneId
+        'avatar': farmland.avatar   // 新增：保存头像路径
       });
 
       for (const device of farmland.device_s) {
@@ -92,13 +92,11 @@ export class FarmlandDatabase {
 
   // 查询所有农田数据
   async getAllFarmlands() {
-
     const farmlands: farmland[] = [];
-    const deviceList: Device[] = [];
     const predicates_farmland = new relationalStore.RdbPredicates(this.TABLE_NAME);
 
     try {
-      const resultSet = await this.rdbStore?.query(predicates_farmland);
+      const resultSet = await this.rdbStore?.query(predicates_farmland, ['id', 'name', 'zoneId', 'avatar']);
       console.log('Farmlands queried successfully.');
       if (resultSet?.rowCount == 0) {
         return []
@@ -106,11 +104,11 @@ export class FarmlandDatabase {
 
       while (resultSet?.goToNextRow()) {
         const farmland_id = resultSet.getLong(0);
-        console.log('Farmland,,,deviceId:' + JSON.stringify(farmland_id))
-        //获取农田名字
         const farmland_name = resultSet.getString(1);
+        const zoneId = resultSet.getLong(resultSet.getColumnIndex('zoneId')) || 0;  // ✅ 新增：读取 zoneId
+        const avatar = resultSet.getString(resultSet.getColumnIndex('avatar')) || '';  // ✅ 新增：读取 avatar
 
-        //获取农田工具组
+        // 获取农田工具组
         const devices: Device[] = []
         const DeviceResultSet = await this.rdbStore?.query(
           new relationalStore.RdbPredicates('Device')
@@ -128,20 +126,19 @@ export class FarmlandDatabase {
           } while (DeviceResultSet.goToNextRow())
         }
         DeviceResultSet?.close()
-        farmlands.push(new farmland(farmland_name, devices))
 
+        farmlands.push(new farmland(farmland_name, devices, avatar, zoneId))
       }
       resultSet?.close();
       console.log('Farmland,Farmlands:' + JSON.stringify(farmlands))
       return farmlands;
 
-
     } catch (err) {
       console.error(`Failed to query books: ${err.message}`);
-
       return farmlands
     }
   }
+
   async getAllDevice_num() {
 
     let Num:number = 0
@@ -345,26 +342,51 @@ export class FarmlandDatabase {
 
   }
 
-  async deleteFarmlandByName( name: string) {
+  async deleteFarmlandByName(name: string) {
     if (!this.rdbStore) {
       console.error('Database is not initialized.');
       return;
     }
     try {
-      const farmlandId = await this.getFarmlandsIdByName(name)
-      //先删除农田ID对应的工具
+      // 1. 先查询农田的 zoneId
+      const predicates = new relationalStore.RdbPredicates(this.TABLE_NAME);
+      predicates.equalTo('name', name);
+      const resultSet = await this.rdbStore?.query(predicates, ['id', 'zoneId']);
+
+      let zoneId = 0;
+      let farmlandId = 0;
+      if (resultSet?.goToFirstRow()) {
+        farmlandId = resultSet.getLong(0);
+        zoneId = resultSet.getLong(resultSet.getColumnIndex('zoneId')) || 0;
+      }
+      resultSet?.close();
+
+      // 2. 先删除农田ID对应的工具
       const sql1 = 'DELETE FROM Device WHERE farmlandId =?';
       const params = [farmlandId];
       await this.rdbStore.executeSql(sql1, params);
-      //在删除农田
-      const sql2 = 'DELETE FROM Farmland WHERE id =?'
-      await this.rdbStore.executeSql(sql2,params)
 
-      console.log(`farmland with name ${name} deleted successfully.`);
+      // 3. 删除农田
+      const sql2 = 'DELETE FROM Farmland WHERE id =?'
+      await this.rdbStore.executeSql(sql2, params)
+
+      console.log(`Farmland with name ${name} deleted successfully.`);
+
+      // 4. 如果 zoneId 存在，调用后端接口删除
+      if (zoneId > 0) {
+        try {
+          await deleteFarm(zoneId);
+          console.log('后端农田删除成功');
+        } catch (err) {
+          console.error('后端农田删除失败:', err);
+          // 注意：这里即使后端删除失败，本地已删除，可以根据需求决定是否回滚
+        }
+      }
     } catch (err) {
       console.error(`Failed to delete device: ${err.message}`);
     }
   }
+
 
   async deleteDeviceByFarmlandIdAndName(farmlandId: number, name: string) {
     if (!this.rdbStore) {

@@ -12,6 +12,8 @@ import {
   checkUsernameExists,
   addFarm,
   getFarmList,
+  deleteFarm,
+  deleteDevice,
   setFarmImage,
   addVideoRecord,
   getVideoListByUserId,
@@ -25,7 +27,16 @@ import { alarmService } from '../repository/roomDatabase';
 import buffer from '@ohos.buffer';
 import socket from '@ohos.net.socket';
 import { BusinessError } from '@kit.BasicServicesKit';
+import util from '@ohos.util';
 
+// 最新视频响应接口
+interface LatestVideoResponse {
+  videoPath: string;
+  videoId?: number;
+  fileName?: string;
+  createTime?: string;
+  message?: string;
+}
 
 // 登录请求体
 interface LoginBody {
@@ -144,6 +155,34 @@ interface FarmImageBody {
   zoneId: number;
   imagePath: string;
 }
+
+// 农田图片上传请求体
+interface FarmAvatarUploadBody {
+  userId: number;
+  farmName: string;
+  location?: string;
+  note?: string;
+  base64: string;
+  fileName: string;
+}
+
+// 农田图片上传响应
+interface FarmAvatarUploadResponse {
+  message: string;
+  zoneId: number;
+  imagePath: string;
+}
+
+// 删除农田请求体
+interface FarmDeleteBody {
+  zoneId: number;
+}
+
+// 删除设备请求体
+interface DeviceDeleteBody {
+  deviceId: number;
+}
+
 
 // 通用操作响应接口
 interface CommonResponse {
@@ -391,7 +430,26 @@ export class MyHttpServer {
       const randomLight = Math.floor(Math.random() * 50000) + 1000;
       console.log(`[光照] 自动采集: ${randomLight} lux`);
     }, 8000);
+
+    // 定时截帧 - 每60秒检查一次新视频并截帧
+    setInterval(async () => {
+      try {
+        const store = await openAgriDb(this.context);
+        const videos = await getLatestVideoPerDevice(store);
+
+        for (const video of videos) {
+          const photoPath = await this.captureFrame(video.file_path);
+          if (photoPath) {
+            await addCapturePhoto(store, video.device_sn || "", video.zone_id || null, photoPath);
+            console.log("✅ 定时截帧成功:", photoPath);
+          }
+        }
+      } catch (err) {
+        console.error("定时截帧失败", err);
+      }
+    }, 60000);
   }
+
 
   stopServer(): void {
     if (this.tcpServer) {
@@ -835,6 +893,116 @@ export class MyHttpServer {
       }
     }
 
+    // 新增：农田头像上传接口（同时创建农田记录）
+    if (path === "/api/farm/uploadAvatar" && body) {
+      try {
+        const b: FarmAvatarUploadBody = body as FarmAvatarUploadBody;
+
+        if (!b.userId || !b.farmName || !b.base64|| !b.fileName) {
+          return this.fail("参数缺失");
+        }
+
+        // 1. 创建保存图片的目录
+        const farmImageDir: string = this.context.filesDir + "/farm_images/";
+        if (!(await fs.access(farmImageDir))) {
+          await fs.mkdir(farmImageDir);
+        }
+
+        // 2. 生成唯一文件名
+        const ext: string = b.fileName.split(".").pop() || "jpg";
+        const saveFileName: string = `FARM_${Date.now()}_${b.userId}.${ext}`;
+        const finalImagePath: string = farmImageDir + saveFileName;
+
+        // 3. Base64 转二进制并保存（替换原来的 fs.copyFile）
+        const base64Helper: util.Base64Helper = new util.Base64Helper();
+        const binaryData: ArrayBuffer = base64Helper.decodeSync(b.base64);
+        const bytes: Uint8Array = new Uint8Array(binaryData);
+        const file = await fs.open(finalImagePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
+        await fs.write(file.fd, bytes.buffer);
+        await fs.close(file.fd);
+
+        const stat = await fs.stat(finalImagePath);
+        console.log(`✅ 农田图片已保存: ${finalImagePath}, 大小: ${stat.size} bytes`);
+
+
+        // 4. 创建农田记录
+        const store = await openAgriDb(this.context);
+        const zoneId = await addFarm(
+          store,
+          b.userId,
+          b.farmName,
+          b.location || "",
+          b.note || "",
+          finalImagePath
+        );
+
+        // 5. 返回结果
+        const res: FarmAvatarUploadResponse = {
+          message: "农田创建成功",
+          zoneId: zoneId,
+          imagePath: finalImagePath
+        };
+        return this.success(res);
+      } catch (err) {
+        console.error("农田图片上传失败", err);
+        return this.fail("农田创建失败");
+      }
+    }
+
+    // 删除农田接口
+    if (path === "/api/farm/delete" && body) {
+      try {
+        const b: FarmDeleteBody = body as FarmDeleteBody;
+
+        if (!b.zoneId) {
+          return this.fail("参数缺失：缺少 zoneId");
+        }
+
+        const store = await openAgriDb(this.context);
+        const success = await deleteFarm(store, b.zoneId);
+
+        if (success) {
+          const res: CommonResponse = {
+            message: "农田删除成功"
+          };
+          return this.success(res);
+        } else {
+          return this.fail("农田不存在或删除失败");
+        }
+      } catch (err) {
+        console.error("删除农田失败", err);
+        return this.fail("删除农田失败");
+      }
+    }
+
+    // 删除设备接口
+    if (path === "/api/device/delete" && body) {
+      try {
+        const b: DeviceDeleteBody = body as DeviceDeleteBody;
+
+        if (!b.deviceId) {
+          return this.fail("参数缺失：缺少 deviceId");
+        }
+
+        const store = await openAgriDb(this.context);
+        const success = await deleteDevice(store, b.deviceId);
+
+        if (success) {
+          const res: CommonResponse = {
+            message: "设备删除成功"
+          };
+          return this.success(res);
+        } else {
+          return this.fail("设备不存在或删除失败");
+        }
+      } catch (err) {
+        console.error("删除设备失败", err);
+        return this.fail("删除设备失败");
+      }
+    }
+
+
+
     if (path === "/api/video/uploadToGallery" && body) {
       try {
         const b: VideoUploadBody = body as VideoUploadBody;
@@ -961,6 +1129,46 @@ export class MyHttpServer {
       } catch (err) {
         console.error("获取最新照片失败", err);
         return this.fail("获取最新照片失败");
+      }
+    }
+
+    // 获取最新视频接口
+    if (path === "/api/video/latest") {
+      try {
+        const userIdStr: string | null = this.getQueryParam(path, "userId");
+        if (!userIdStr) {
+          return this.fail("缺少 userId");
+        }
+
+        const userId: number = Number(userIdStr);
+        const store = await openAgriDb(this.context);
+
+        // 获取该用户的视频列表
+        const list = await getVideoListByUserId(store, userId);
+
+        if (!list || list.length === 0) {
+          const emptyResponse: LatestVideoResponse = {
+            videoPath: "",
+            message: "暂无视频"
+          };
+          return this.success(emptyResponse);
+        }
+
+        // 返回最新的一条视频（假设列表已按时间降序排序）
+        const latestVideo = list[0];
+
+        // 根据实际数据库返回的字段名调整
+        const res: LatestVideoResponse = {
+          videoPath: latestVideo.file_path || "",
+          videoId: latestVideo.id,
+          fileName: latestVideo.file_name,
+          createTime: String(latestVideo.upload_time)
+        };
+
+        return this.success(res);
+      } catch (err) {
+        console.error("获取最新视频失败", err);
+        return this.fail("获取最新视频失败");
       }
     }
 

@@ -114,3 +114,53 @@ export async function controlHardware(paras: HardwareParams): Promise<BaseRespon
   };
   return POST("/api/hardware/control", body);
 }
+// ===================== 农田相关接口 =====================
+
+// 删除农田请求体
+interface DeleteFarmRequest {
+  zoneId: number;
+}
+
+// 删除农田响应数据
+interface DeleteFarmResponseData {
+  message: string;
+}
+
+// 删除农田响应
+interface DeleteFarmResponse extends BaseResponse {
+  data: DeleteFarmResponseData;
+}
+
+
+// 删除农田
+export async function deleteFarm(zoneId: number): Promise<DeleteFarmResponse> {
+  let httpRequest = http.createHttp();
+  return new Promise<DeleteFarmResponse>((resolve, reject) => {
+    const body: DeleteFarmRequest = { zoneId: zoneId };
+    httpRequest.request(
+      BASE_URL + "/api/farm/delete",
+      {
+        method: http.RequestMethod.POST,
+        header: {
+          "Content-Type": "application/json"
+        },
+        extraData: JSON.stringify(body),
+        readTimeout: 10000,
+        connectTimeout: 10000
+      },
+      (err: BusinessError, data: http.HttpResponse) => {
+        httpRequest.destroy();
+        if (!err) {
+          try {
+            const result: DeleteFarmResponse = JSON.parse(data.result as string) as DeleteFarmResponse;
+            resolve(result);
+          } catch (e) {
+            reject(e);
+          }
+        } else {
+          reject(err);
+        }
+      }
+    );
+  });
+}

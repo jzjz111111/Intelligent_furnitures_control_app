@@ -5,8 +5,16 @@ import { farmland, Device } from '../tool/classes';
 import { curves } from '@kit.ArkUI';
 import { FarmlandDatabase } from "../data/RdbStorage";
 import common from '@ohos.app.ability.common';
+import http from '@ohos.net.http';
 
+interface PhotoData{
+  path?:string;
+}
+interface LatestPhotoResponse {
+  code: number;
+  data:PhotoData ;
 
+}
 
 @Entry
 @Component
@@ -20,7 +28,7 @@ export struct RemoteControlPage {
   @Link currentFarm: farmland | null;
   @State showMyList: boolean = false;
   @State is_sleep: boolean = false;
-
+  @State latestPhotoPath: string = "";
   // ========== UI动画状态 ==========
   @State headerScale: number = 0.95;
   @State headerOpacity: number = 0;
@@ -37,9 +45,13 @@ export struct RemoteControlPage {
   @State deleteDeviceName: string = '';
   @State pressedDeleteIndex: number = -1;
 
+
+
+
   private db: FarmlandDatabase | null = null;
 
   aboutToAppear() {
+    this.loadLatestPhoto();
     const context = getContext(this) as common.UIAbilityContext;
     this.db = new FarmlandDatabase(context);
 
@@ -64,6 +76,26 @@ export struct RemoteControlPage {
       this.deviceListOpacity = 1;
     });
   }
+
+  private async loadLatestPhoto() {
+    try {
+      const httpRequest = http.createHttp();
+      const response = await httpRequest.request(
+        'http://127.0.0.1:8080/api/photo/latest',
+        { method: http.RequestMethod.GET }
+      );
+
+      const result: LatestPhotoResponse = JSON.parse(response.result.toString()) as LatestPhotoResponse;
+
+      if (result.code === 200 && result.data.path) {
+        this.latestPhotoPath = result.data.path;
+      }
+      httpRequest.destroy();
+    } catch (err) {
+      console.error("加载最新照片失败", err);
+    }
+  }
+
 
   //删除逻辑
   private async deleteDevice(index: number) {
@@ -241,6 +273,14 @@ export struct RemoteControlPage {
   @Builder
   FarmInfoCard() {
     Column() {
+      if (this.latestPhotoPath) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(255, 255, 255, 0.85)')  // 半透明白色遮罩
+          .borderRadius(16)
+          .zIndex(-1);  // 放在内容下面
+      }
       Row({ space: 16 }) {
         Stack() {
           if (this.farm?.avatar) {
@@ -340,7 +380,8 @@ export struct RemoteControlPage {
     .height(240)
     .width("100%")
     .padding(15)
-    .backgroundColor("#fff8f6f6")
+    .backgroundImage(this.latestPhotoPath ? this.latestPhotoPath : '')
+    .backgroundImageSize(ImageSize.Cover)
     .borderRadius(16)
     .margin({ top: 5, bottom: 5 })
   }

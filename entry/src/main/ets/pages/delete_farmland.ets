@@ -3,6 +3,8 @@ import common from '@ohos.app.ability.common';
 import { ThemeColors } from '../utils/theme';
 import { farmland } from '../tool/classes';
 import { FarmlandDatabase } from '../data/RdbStorage';
+import { deleteFarm } from '../../common/api/HttpApi';
+
 
 @Entry
 @Component
@@ -57,7 +59,7 @@ struct ConfirmDialog {
             .borderRadius(20)
             .stateEffect(true);
           Button('确认删除')
-            .onClick(async () => {
+            /*.onClick(async () => {
               if (this.db) {
                 await this.db.deleteFarmlandByName(this.name)
                 this.arr_farmland = this.arr_farmland.filter(element => element.name !== this.name);
@@ -65,6 +67,38 @@ struct ConfirmDialog {
               animateTo({ duration: 300 }, () => {
                 this.is_show = false;
               });
+            })*/
+            .onClick(async () => {
+              try {
+                // 1. 找到要删除的农田，获取 zoneId
+                const farmToDelete = this.arr_farmland.find(element => element.name === this.name);
+
+                if (!farmToDelete || !farmToDelete.zoneId) {
+                  AlertDialog.show({ message: "农田ID不存在" });
+                  return;
+                }
+
+                // 2. 调用后端删除接口
+                const result = await deleteFarm(farmToDelete.zoneId);
+
+                if (result.code === 200) {
+                  if (this.db) {
+                    await this.db.deleteFarmlandByName(this.name);
+                  }
+                  // 3. 删除成功后更新本地数组
+                  this.arr_farmland = this.arr_farmland.filter(element => element.name !== this.name);
+                  AlertDialog.show({ message: "农田删除成功" });
+                } else {
+                  AlertDialog.show({ message: result.message || "删除失败，请重试" });
+                }
+              } catch (err) {
+                console.error("删除农田失败:", err);
+                AlertDialog.show({ message: "网络错误，请检查服务器连接" });
+              } finally {
+                animateTo({ duration: 300 }, () => {
+                  this.is_show = false;
+                });
+              }
             })
             .width(120)
             .height(40)

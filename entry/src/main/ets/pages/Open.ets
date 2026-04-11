@@ -6,6 +6,37 @@ import util from '@ohos.util';
 import { systemDateTime } from '@kit.BasicServicesKit';
 import { curves } from '@kit.ArkUI';
 import { ThemeColors } from '../utils/theme';
+import http from '@ohos.net.http';
+import { MyHttpServer } from '../server/HttpServer';
+
+
+// 登录请求参数接口
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+interface LoginData {
+  userId: number;
+  username: string;
+}
+
+interface LoginResult {
+  code: number;
+  msg: string;
+  data: LoginData;
+}
+
+interface ServerResponse {
+  code: number;
+  data: object | null;
+  msg: string;
+}
+
+interface LoginResponseData {
+  code: number;
+  msg: string;
+}
 
 @Entry
 @Component
@@ -364,7 +395,7 @@ struct NewPage {
     return true;
   }
 
-  private async handleLogin(): Promise<boolean> {
+  /*private async handleLogin(): Promise<boolean> {
     try {
       if (!this.userPreferences) {
         this.showCustomToast('系统未初始化', 'error');
@@ -398,7 +429,122 @@ struct NewPage {
       this.showCustomToast(`登录失败: ${error.message}`, 'error');
       return false;
     }
+  }*/
+
+  async handleLogin(): Promise<boolean> {
+    const encryptedPassword = await this.encryptPassword(this.input_password);
+
+    this.is_landing = true;
+
+    try {
+      const url: string = "http://127.0.0.1:8080/api/user/login";
+      console.log('==================');
+      console.log('[登录] ========== 开始发送请求 ==========');
+      console.log('[登录] URL:', url);
+      console.log('[登录] 请求参数:', JSON.stringify({ username: this.input_userName }));
+      console.log('==================');
+
+      const httpRequest = http.createHttp();
+      try {
+        console.log('[登录] 正在创建 HTTP 请求...');
+        const response = await httpRequest.request(url, {
+          method: http.RequestMethod.POST,
+          header: {
+            "Content-Type": "application/json"
+          },
+          extraData: JSON.stringify({
+            username: this.input_userName,
+            password: encryptedPassword  // ✅ 使用加密后的密码
+          }),
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+
+        console.log('[登录] ✅ 收到响应！');
+        console.log('[登录] 状态码:', response.responseCode);
+        console.log('[登录] 响应头:', JSON.stringify(response.header));
+
+        if (response.responseCode !== 200) {
+          this.showCustomToast(`服务器异常 (${response.responseCode})`, "error");
+          return false;
+        }
+
+        const result = JSON.parse(response.result as string) as LoginResponseData;
+        console.log('[登录] 响应数据:', JSON.stringify(result));
+
+        if (result.code !== 200) {
+          this.showCustomToast(result.msg || "登录失败", "error");
+          return false;
+        }
+
+
+        await this.userPreferences!.put('last_login', this.input_userName);
+        await this.userPreferences!.put("is_land", true);
+        await this.userPreferences!.flush();
+
+        console.log('[登录] ✅ 登录成功，跳转首页');
+        return true;
+      } finally {
+        httpRequest.destroy();
+      }
+
+    } catch (error) {
+      const e = error as BusinessError;
+      console.error('==================');
+      console.error('[登录] ❌ 请求失败！');
+      console.error('[登录] 错误信息:', e.message);
+      console.error('[登录] 错误码:', e.code);
+      console.error('[登录] 完整错误:', JSON.stringify(e));
+      console.error('==================');
+
+      if (e.code === 13900042 || e.message.includes('Timeout')) {
+        this.showCustomToast("网络连接超时，请检查后端服务是否启动", "error");
+      } else if (e.message.includes('Connection refused')) {
+        this.showCustomToast("无法连接到服务器，请确认服务器已启动", "error");
+      } else {
+        this.showCustomToast("登录失败：" + e.message, "error");
+      }
+      return false;
+    } finally {
+      this.is_landing = false;
+    }
   }
+
+
+  // Deleted:private async handleServerApi(api: string, body: LoginRequest): Promise<ServerResponse> {
+  // Deleted:const globalThisAny: Record<string, Object | undefined> = globalThis as Record<string, Object | undefined>;
+  // Deleted:const serverInstance: Object | undefined = globalThisAny['httpServer'];
+  // Deleted:
+  // Deleted:if (!serverInstance || !(serverInstance instanceof MyHttpServer)) {
+  // Deleted:throw new Error("后端未启动");
+  // Deleted:}
+  // Deleted:
+  // Deleted:const server: MyHttpServer = serverInstance as MyHttpServer;
+  // Deleted:const responseStr: string = await server.getMockResponse(api, body);
+  // Deleted:const parsedResponse: ServerResponse = JSON.parse(responseStr) as ServerResponse;
+  // Deleted:return parsedResponse;
+  // Deleted:}
+
+
+  // ... existing code ...
+
+
+  // ✅ 直接和后端通信（你这个项目真正的联调方式）
+  private async handleServerApi(api: string, body: LoginRequest): Promise<ServerResponse> {
+    const globalThisAny: Record<string, Object | undefined> = globalThis as Record<string, Object | undefined>;
+    const serverInstance: Object | undefined = AppStorage.get('httpServer') as Object | undefined;
+
+
+    if (!serverInstance || !(serverInstance instanceof MyHttpServer)) {
+      throw new Error("后端未启动");
+    }
+
+    const server: MyHttpServer = serverInstance as MyHttpServer;
+    const responseStr: string = await server.getMockResponse(api, body);
+    const parsedResponse: ServerResponse = JSON.parse(responseStr) as ServerResponse;
+    return parsedResponse;
+  }
+
 
   private async encryptPassword(plainText: string): Promise<string> {
     try {

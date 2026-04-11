@@ -5,10 +5,12 @@ export class farmland{
   name:string = ''
   device_s:Device[] = []
   avatar: string = '';
-  constructor(name:string,fnt:Device[], avatar: string = '') {
+  zoneId: number = 0;
+  constructor(name:string,fnt:Device[], avatar: string = '',zoneId: number = 0) {
     this.name = name
     this.device_s = fnt
-    this.avatar = avatar;
+    this.avatar = avatar
+    this.zoneId = zoneId;
   }
   get_lighting(){
     let max = 0

@@ -223,7 +223,6 @@ export class IoTda{
         },
         extraData: JSON.stringify(body),
       });
-      DATA_new = "{\"temperature\":20,\"humidity\":40,\"co2\":88,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
       console.log("Message sent::"+response.result)
       if (response.responseCode === 200) {
         console.log('Message sent successfully:', response.result.toString());
@@ -239,14 +238,13 @@ export class IoTda{
           let error = e as BusinessError;
           console.info(`Failed to get time. message: ${error.message}, code: ${error.code}`);
         }
-        console.log("Data::"+response.result.toString())
-        DATA_new = response.result.toString().match(regex1)?.toString()+"}"
-        console.log("data:::1"+response.result.toString().match(regex1)?.toString()+"}")
-        DATA_new ="{" + DATA_new.match(regex1)?.toString().split("},{")[1]+"}"
-        console.log("data:::2"+DATA_new)
-        DATA_new = "{\"temperature\":23,\"humidity\":80,\"co2\":26,\"motion_state\":1,\"door_state\":0,\"brightness\":5000,\"1001\":1,\"1102\":1,\"2001\":1,\"3001_2\":20,\"4001\":1,\"3001\":1,\"3001_3\":\"zl\"}"
-
-        return "//{\"result_code\":0,\"data\":{\"temperature\":16,\"humidity\":0,\"co2\":0,\"motion_state\":1,\"door_state\":0,\"brightness\":500,\"1001\":1,\"1102\":1,\"2001\":0,\"3001_2\":0,\"4001\":0,\"3001_1\":0,\"3001_3\":0}}"
+        console.log("📊 华为云原始响应："+response.result.toString())
+        let responseObj: Record<string, Object> = JSON.parse(response.result.toString())
+        if (responseObj.data) {
+          DATA_new = JSON.stringify(responseObj.data)
+        }
+        console.log("📊 解析后的DATA_new："+DATA_new)
+        console.log("✅ 最终DATA_new: "+DATA_new)
         return response.result.toString().match(regex)?.toString().split(",")[1]+"}"
 
       } else {

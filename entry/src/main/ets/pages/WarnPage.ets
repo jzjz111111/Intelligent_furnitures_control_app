@@ -4,7 +4,6 @@
 import { ThemeColors } from '../utils/theme';
 import { farmland, Device } from '../tool/classes';
 import { Datamodel } from '../utils/common';
-import { tcp } from './Index';
 import { _IoTad } from './scan_devices';
 import { curves, promptAction } from '@kit.ArkUI';
 
@@ -176,7 +175,6 @@ struct WarnPage {
     try {
       if (this.warn_data.type === 'temp' || this.warn_data.type === 'humi') {
         if (this.have_temperature_control_device) {
-          await tcp.send_on(this.a_id);
           const mode = this.warn_data.type === 'temp' ? 'zl' : 'cs';
           await _IoTad.set_temperature_control_device_by_id(25, "on", mode);
         }

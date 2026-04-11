@@ -6,13 +6,11 @@ import { userpage } from './userpage';
 import { WarnPage } from './WarnPage';
 import { ThemeColors } from '../utils/theme';
 import { Datamodel } from '../utils/common';
-import { _Tcp } from '../tool/TCP';
 import { FarmlandDatabase } from '../data/RdbStorage';
 import { farmland, Device } from '../tool/classes';
+import { DataAnalysisPage } from './DataAnalysis';
+import common from '@ohos.app.ability.common';
 
-// 全局导出实例（保持原有全局调用能力）
-export let tcp: _Tcp = new _Tcp(8888, '192.168.191.19');
-export let Farmland_db: FarmlandDatabase = new FarmlandDatabase(globalThis.getContext());
 
 @Component
 @Entry
@@ -32,13 +30,20 @@ struct Index {
   @State is_show_dan: boolean = false;
   @State edit_f: Device = new Device("", 0, 0);
 
-  // 启动时自动弹出警告（模拟数据）
+  private db: FarmlandDatabase | null = null;
+
   aboutToAppear(): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    this.db = new FarmlandDatabase(context);
+
     // 延迟一点显示，确保页面渲染完成
     setTimeout(() => {
       this.showMockWarning();
     }, 500);
   }
+
+  // ... existing code ...
+
 
   // 显示模拟警告数据
   private showMockWarning(): void {
@@ -101,7 +106,24 @@ struct Index {
     .backgroundColor(num == this.selectnumber ? ThemeColors.bgCard : Color.White)
     .padding({ bottom: 8 });
   }
-
+  @Builder
+  MyBuilder_analysis(title:string,num:number){
+    Column() {
+      Row().width("100%").height(12);
+      Image($r("app.media.user"))
+        .height(num == this.selectnumber ? 24 : 20)
+        .width(num == this.selectnumber ? 24 : 20)
+        .fillColor(num == this.selectnumber ? ThemeColors.primary : ThemeColors.textTertiary);
+      Text(title)
+        .fontSize(12)
+        .fontColor(num == this.selectnumber ? ThemeColors.primary : ThemeColors.textTertiary)
+        .margin({ top: 4 });
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(num == this.selectnumber ? ThemeColors.bgCard : Color.White)
+    .padding({ bottom: 8 });
+  }
   @Builder
   MyBuilder_home(title: string, num: number) {
     Column() {
@@ -133,14 +155,20 @@ struct Index {
             });
           }
           .tabBar(this.MyBuilder_home("农场总览", 0))
+          TabContent(){
+            DataAnalysisPage()
+          }
+          .tabBar(this.MyBuilder_analysis("数据分析",1))
           TabContent() {
             FarmScenePage();
           }
-          .tabBar(this.MyBuilder_add("智能场景", 1))
+          .tabBar(this.MyBuilder_add("智能场景", 2))
+
+
           TabContent() {
             userpage();
           }
-          .tabBar(this.MyBuilder_user("个人中心", 2))
+          .tabBar(this.MyBuilder_user("个人中心", 3))
         }
         .width('100%')
         .height('100%')

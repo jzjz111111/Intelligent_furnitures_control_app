@@ -68,8 +68,10 @@
         }
       },
       {
-        "name": "ohos.permission.INTERNET"
-      }
+        "name": "ohos.permission.INTERNET",
+        "reason": "$string:internet_reason"
+      },
+
     ]
   }
 }

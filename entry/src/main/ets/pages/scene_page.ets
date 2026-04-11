@@ -1,569 +1,695 @@
-import { Device, farmland } from "../tool/classes";
-import { ControlTemp } from "../tool/component";
-import { _IoTad } from "./scan_devices";
+import { ThemeColors } from '../utils/theme';
+import { curves } from '@kit.ArkUI';
+import router from '@ohos.router';
 
+// 类型定义
+type SceneType = 'lighting' | 'irrigation' | 'pest' | 'environment';
 
-interface EnvironmentItemParams {
+interface SceneItem {
+  id: SceneType;
+  name: string;
+  subtitle: string;
   icon: Resource;
-  value: string;
-  title: string;
-  color?: string;
-  onAction?: () => void;
+  color: string;
+  desc: string;
 }
-type DescMap = Record<string, string>;
-interface ControlItemParams {
-  icon: Resource;
-  title: string;
-  status: string;
-  buttonText: string;
-  onAction: () => void;
-}
-/*
-@Component
-export struct FarmScenePage {
-  @Link arr_farmland: farmland[];
-  @State sceneList: string[] = ["育苗保温模式", "灌溉节水模式", "通风遮阳模式"];
-  @State isSeedlingSceneShow: boolean = false;
-  @State isIrrigationSceneShow: boolean = false;
-  @State currentScene: string = '';
-  @State panelHeight: string = "0%";
 
-  build(): void {
-    Stack() {
-      Image($r('app.media.farm_bg'))
-        .objectFit(ImageFit.Cover)
-
-      List() {
-        ForEach(this.sceneList, (sceneName: string, index: number) => {
-          ListItem() {
-            Column() {
-              Image(this.getSceneIcon(index))
-                .width(48)
-                .height(48)
-                .margin({ bottom: 8 });
-
-              Text(sceneName)
-                .fontSize(18)
-                .fontColor('#2C3E50')
-                .fontWeight(FontWeight.Medium);
-
-              Text(this.getSceneDescription(sceneName))
-                .fontSize(12)
-                .fontColor('#7F8C8D')
-                .margin({ top: 4 });
-            }
-            .padding(20)
-            .backgroundColor(Color.White)
-            .borderRadius(16)
-            .shadow({ radius: 8, color: '#00000010', offsetX: 2, offsetY: 4 })
-            .width('100%')
-            .onClick(() => this.handleSceneClick(index));
-          }
-          .margin({ top: 8, bottom: 8 })
-          .key(index.toString());
-        }, (sceneName: string, index: number) => index.toString());
-      }
-      .width('90%')
-      .alignListItem(ListItemAlign.Center)
-      .edgeEffect(EdgeEffect.None);
-
-      if (this.isSeedlingSceneShow || this.isIrrigationSceneShow) {
-        Column() {
-          Blank()
-            .onClick(() => this.closeScenePanels())
-            .backgroundColor('#00000030');
-
-          if (this.isSeedlingSceneShow) {
-            SeedlingScene({
-              scene: this.currentScene,
-              arr_farmland: this.arr_farmland,
-              is_show: this.isSeedlingSceneShow,
-              _height: this.panelHeight
-            })
-              .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
-          }
-
-          if (this.isIrrigationSceneShow) {
-            IrrigationScene({
-              arr_farmland: this.arr_farmland,
-              is_show: this.isIrrigationSceneShow,
-              _height: this.panelHeight
-            })
-              .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
-          }
-        }
-      }
-    }
-    .height('100%');
-  }
-
-  private handleSceneClick(index: number): void {
-    this.currentScene = this.sceneList[index];
-    animateTo({ duration: 300 }, () => {
-      this.panelHeight = "100%";
-      if (index === 0) this.isSeedlingSceneShow = true;
-      if (index === 1) this.isIrrigationSceneShow = true;
-    });
-  }
-
-  private closeScenePanels(): void {
-    animateTo({ duration: 300 }, () => {
-      this.panelHeight = "0%";
-      this.isSeedlingSceneShow = false;
-      this.isIrrigationSceneShow = false;
-    });
-  }
-
-  private getSceneIcon(index: number): Resource {
-    const icons = [
-      $r("app.media.ic_seedling"),
-      $r("app.media.ic_water"),
-      $r("app.media.ic_vent")
-    ];
-    return icons[index];
-  }
-
-  private getSceneDescription(scene: string): string {
-    const descriptionMap: DescMap = {
-      "育苗保温模式": "开启补光与恒温，保持幼苗适宜生长环境",
-      "灌溉节水模式": "智能水肥控制，根据土壤湿度自动节水灌溉",
-      "通风遮阳模式": "自动调节遮阳与通风，降低棚内温湿度"
-    };
-    return descriptionMap[scene] || '';
-  }
-}*/
 @Entry
 @Component
 export struct FarmScenePage {
-  @Link arr_farmland: farmland[];
-  @State sceneList: string[] = ["育苗保温模式", "灌溉节水模式", "通风遮阳模式"];
-  @State isSeedlingSceneShow: boolean = false;
-  @State isIrrigationSceneShow: boolean = false;
-  @State currentScene: string = '';
+  @State isLightingShow: boolean = false;
+  @State isIrrigationShow: boolean = false;
+  @State isPestShow: boolean = false;
+  @State isEnvironmentShow: boolean = false;
+  @State currentScene: SceneType = 'lighting';
   @State panelHeight: string = "0%";
+  @State isPageLoaded: boolean = false;
 
-  build(): void {
-    Stack() {
-      // 背景
-      Image($r('app.media.farm_bg'))
-        .objectFit(ImageFit.Cover)
+  private sceneList: SceneItem[] = [
+    {
+      id: 'lighting',
+      name: '智慧光照',
+      subtitle: 'Smart Lighting',
+      icon: $r('app.media.ic_lighting'),
+      color: '#F39C12',
+      desc: '智能补光系统，根据作物生长周期自动调节光照时长与强度'
+    },
+    {
+      id: 'irrigation',
+      name: '智慧灌溉',
+      subtitle: 'Smart Irrigation',
+      icon: $r('app.media.ic_irrigation'),
+      color: '#3498DB',
+      desc: '基于土壤湿度传感器数据，精准控制水肥一体化灌溉'
+    },
+    {
+      id: 'pest',
+      name: '害虫识别',
+      subtitle: 'Pest AI Recognition',
+      icon: $r('app.media.ic_pest'),
+      color: '#E74C3C',
+      desc: 'AI视觉识别技术，实时监测并预警病虫害，自动生成防治方案'
+    },
+    {
+      id: 'environment',
+      name: '智慧环境',
+      subtitle: 'Environment Monitor',
+      icon: $r('app.media.ic_environment'),
+      color: '#27AE60',
+      desc: '24小时监测温湿度、CO2、PM2.5等环境指标，异常自动告警'
+    }
+  ];
+
+  aboutToAppear() {
+    animateTo({ duration: 600, curve: curves.springMotion() }, () => {
+      this.isPageLoaded = true;
+    });
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      // 背景层
+      Column()
         .width('100%')
-        .height('100%');
+        .height('100%')
+        .backgroundColor(ThemeColors?.bgPrimary || '#F0F9F4')
 
-      // 产品化卡片列表
-      Scroll() {
-        Column({ space: 14 })
-        {
-          ForEach(this.sceneList, (sceneName: string, index: number) => {
-            Column({ space: 6 }) {
-              Image(this.getSystemIcon(index))
-                .width(48)
-                .height(48)
-                .margin({ bottom: 8 });
+      // 装饰圆形
+      Column()
+        .width(300)
+        .height(300)
+        .backgroundColor(ThemeColors?.primaryLight || '#E8F5E9')
+        .borderRadius(150)
+        .position({ x: -80, y: -100 })
+        .opacity(0.6)
+        .blur(30)
 
-              Text(sceneName)
-                .fontSize(18)
-                .fontColor('#2C3E50')
-                .fontWeight(FontWeight.Medium);
+      // 主内容
+      Column({ space: 20 }) {
+        // 标题区
+        Column({ space: 8 }) {
+          Text("🌾 智慧农场")
+            .fontSize(28)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(ThemeColors?.textPrimary || '#2C3E50')
 
-              Text(this.getSceneDescription(sceneName))
-                .fontSize(12)
-                .fontColor('#7F8C8D')
-                .margin({ top: 4 });
+          Text("Smart Farm Control Center")
+            .fontSize(14)
+            .fontColor(ThemeColors?.textSecondary || '#7F8C8D')
+            .letterSpacing(1)
+        }
+        .margin({ top: 60, bottom: 20 })
+        .opacity(this.isPageLoaded ? 1 : 0)
+        .scale({ x: this.isPageLoaded ? 1 : 0.8, y: this.isPageLoaded ? 1 : 0.8 })
+        .animation({ duration: 600, curve: curves.springMotion() })
+
+        // 四个模块网格
+        Grid() {
+          ForEach(this.sceneList, (scene: SceneItem) => {
+            GridItem() {
+              this.SceneCard(scene)
             }
-            .padding(20)
-            .backgroundColor(Color.White)
-            .borderRadius(16)
-            .shadow({ radius: 8, color: '#00000010', offsetX: 2, offsetY: 4 })
-            .width('100%')
-            .onClick(() => this.handleSceneClick(index));
-          }, (sceneName: string, index: number) => index.toString());
+          }, (scene: SceneItem) => scene.id)
         }
-        .width('90%')
-        .margin({ top: 30, bottom: 20 })
+        .columnsTemplate('1fr 1fr')
+        .rowsGap(16)
+        .columnsGap(16)
+        .padding(20)
+        .width('100%')
+        .height('auto')
+        .layoutWeight(1)
       }
-      .edgeEffect(EdgeEffect.Spring);
+      .width('100%')
+      .height('100%')
 
-      // 弹窗逻辑（完全不变）
-      if (this.isSeedlingSceneShow || this.isIrrigationSceneShow) {
+      // 底部弹层面板 - 纯净版，仅保留 UI 交互
+      if (this.isLightingShow || this.isIrrigationShow || this.isPestShow || this.isEnvironmentShow) {
         Column() {
+          // 遮罩层
           Blank()
-            .onClick(() => this.closeScenePanels())
-            .backgroundColor('#00000030')
-            .layoutWeight(1);
+            .width('100%')
+            .backgroundColor('rgba(0,0,0,0.4)')
+            .onClick(() => this.closeAllPanels())
 
-          if (this.isSeedlingSceneShow) {
-            SeedlingScene({
-              scene: this.currentScene,
-              arr_farmland: this.arr_farmland,
-              is_show: this.isSeedlingSceneShow,
-              _height: this.panelHeight
-            })
-              .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
+          // 面板内容 - 只传 onClose
+          Column() {
+            if (this.isLightingShow) {
+              LightingScene({ onClose: () => this.closeAllPanels() })
+            } else if (this.isIrrigationShow) {
+              SmartIrrigationScene({ onClose: () => this.closeAllPanels() })
+            } else if (this.isPestShow) {
+              PestRecognitionScene({ onClose: () => this.closeAllPanels() })
+            } else if (this.isEnvironmentShow) {
+              EnvironmentMonitorScene({ onClose: () => this.closeAllPanels() })
+            }
           }
-
-          if (this.isIrrigationSceneShow) {
-            IrrigationScene({
-              arr_farmland: this.arr_farmland,
-              is_show: this.isIrrigationSceneShow,
-              _height: this.panelHeight
-            })
-              .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 300 }));
-          }
+          .width('100%')
+          .height(this.panelHeight)
+          .backgroundColor(Color.White)
+          .borderRadius({ topLeft: 24, topRight: 24 })
+          .shadow({ radius: 20, color: 'rgba(0,0,0,0.15)', offsetY: -5 })
+          .transition(TransitionEffect.translate({ y: 1000 }).animation({ duration: 400, curve: Curve.EaseOut }))
         }
         .width('100%')
-        .height('100%');
+        .height('100%')
+        .position({ y: 0 })
       }
     }
-    .height('100%');
+    .width('100%')
+    .height('100%')
   }
 
-  // 系统内置图标，不依赖你本地资源
-  private getSystemIcon(index: number): Resource {
-    switch (index) {
-      case 0:  return $r('app.media._robot');
-      case 1:  return $r('app.media._robot');
-      case 2:  return $r('app.media._robot');
-      default: return $r('app.media._robot');
+  @Builder
+  SceneCard(scene: SceneItem) {
+    Column({ space: 12 }) {
+      Stack() {
+        Circle()
+          .width(70)
+          .height(70)
+          .fill(scene.color + '20')
+          .blur(1)
+
+        Image(scene.icon)
+          .width(36)
+          .height(36)
+          .fillColor(scene.color)
+      }
+
+      Column({ space: 4 }) {
+        Text(scene.name)
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(ThemeColors?.textPrimary || '#2C3E50')
+
+        Text(scene.subtitle)
+          .fontSize(11)
+          .fontColor(ThemeColors?.textTertiary || '#95A5A6')
+
+        Text(scene.desc)
+          .fontSize(12)
+          .fontColor(ThemeColors?.textSecondary || '#7F8C8D')
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: 4 })
+      }
     }
+    .padding(20)
+    .width('100%')
+    .height(180)
+    .backgroundColor(Color.White)
+    .borderRadius(20)
+    .shadow({ radius: 12, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 4 })
+    .onClick(() => this.openScene(scene.id))
   }
 
-  // 以下逻辑完全没动
-  private handleSceneClick(index: number): void {
-    this.currentScene = this.sceneList[index];
-    animateTo({ duration: 300 }, () => {
-      this.panelHeight = "100%";
-      if (index === 0) this.isSeedlingSceneShow = true;
-      if (index === 1) this.isIrrigationSceneShow = true;
+  private openScene(sceneId: SceneType): void {
+    // 害虫识别单独跳转到新页面
+    if (sceneId === 'pest') {
+      router.pushUrl({
+        url: 'pages/ai_pest'
+      });
+      return;
+    }
+
+    // 其他三个模块保持原有弹窗逻辑
+    this.currentScene = sceneId;
+    this.isLightingShow = false;
+    this.isIrrigationShow = false;
+    this.isPestShow = false;
+    this.isEnvironmentShow = false;
+
+    animateTo({ duration: 400, curve: Curve.EaseOut }, () => {
+      this.panelHeight = "85%";
+      switch(sceneId) {
+        case 'lighting':
+          this.isLightingShow = true;
+          break;
+        case 'irrigation':
+          this.isIrrigationShow = true;
+          break;
+        case 'environment':
+          this.isEnvironmentShow = true;
+          break;
+      }
     });
   }
 
-  private closeScenePanels(): void {
-    animateTo({ duration: 300 }, () => {
+  private closeAllPanels(): void {
+    animateTo({ duration: 300, curve: Curve.EaseIn }, () => {
       this.panelHeight = "0%";
-      this.isSeedlingSceneShow = false;
-      this.isIrrigationSceneShow = false;
+      this.isLightingShow = false;
+      this.isIrrigationShow = false;
+      this.isPestShow = false;
+      this.isEnvironmentShow = false;
     });
-  }
-
-  private getSceneDescription(scene: string): string {
-    const descriptionMap: DescMap = {
-      "育苗保温模式": "开启补光与恒温，保持幼苗适宜生长环境",
-      "灌溉节水模式": "智能水肥控制，根据土壤湿度自动节水灌溉",
-      "通风遮阳模式": "自动调节遮阳与通风，降低棚内温湿度"
-    };
-    return descriptionMap[scene] || '';
   }
 }
+
+// ==================== 智慧光照场景（纯净版）====================
 @Component
-struct SeedlingScene {
-  @Link scene: string;
-  @Link arr_farmland: farmland[];
-  @Link is_show: boolean;
-  @Link _height: string;
-  @State deviceList: Device[] = [];
-  @State isEnabled: boolean = false;
+struct LightingScene {
+  // 只保留 onClose 回调
+  onClose: () => void = () => {};
 
-  aboutToAppear(): void {
-    this.deviceList = this.arr_farmland
-      .flatMap(r => r.device_s)
-      .filter(f => f.type_id > 999 && f.type_id < 3000);
-  }
+  @State isAutoMode: boolean = true;
+  @State lightBrightness: number = 80;
 
-  build(): void {
-    Column() {
+  build() {
+    Column({ space: 0 }) {
       Row() {
-        Image($r("app.media.ic_back"))
-          .fillColor('#ff111141')
+        Image($r('app.media.ic_back'))
           .width(24)
           .height(24)
-          .onClick(() => this.closePanel());
+          .fillColor(ThemeColors?.textPrimary || '#2C3E50')
+          .onClick(this.onClose)
 
-        Text(this.scene)
+        Text('智慧光照控制')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .layoutWeight(1)
-          .textAlign(TextAlign.Center);
+          .textAlign(TextAlign.Center)
 
-        Text(this.isEnabled ? "已启用" : "已关闭")
-          .fontColor(this.isEnabled ? '#27AE60' : '#E74C3C')
+        Toggle({ type: ToggleType.Switch, isOn: this.isAutoMode })
+          .selectedColor(ThemeColors?.primary || '#27AE60')
+          .onChange((isOn: boolean) => { this.isAutoMode = isOn; })
+      }
+      .padding(20)
+      .width('100%')
 
-        Toggle({ type: ToggleType.Switch, isOn:this.isEnabled})
-          .onClick(()=>{
-            this.isEnabled = !this.isEnabled
-            if(this.isEnabled){
-              _IoTad.set_LED_brightness_by_id(1,1001)
-              _IoTad.set_waterValve_by_id("off")
-              let new_list:Device[] = []
-              for (let i of this.deviceList){
-                i.switch = 0
-                new_list.push(i)
-              }
-              this.deviceList = new_list
-            }else{
-              _IoTad.set_LED_brightness_by_id(5000,1001)
-              _IoTad.set_waterValve_by_id("on")
+      if (this.isAutoMode) {
+        Row({ space: 8 }) {
+          Text('🤖').fontSize(16)
+          Text('自动模式：根据作物生长阶段智能调节光照')
+            .fontSize(13)
+            .fontColor(ThemeColors?.primary || '#27AE60')
+        }
+        .padding(12)
+        .backgroundColor(ThemeColors?.primaryLight || '#E8F5E9')
+        .borderRadius(8)
+        .margin({ left: 16, right: 16 })
+      }
+
+      Column({ space: 8 }) {
+        Row() {
+          Text('💡 光照强度').fontSize(16).fontWeight(FontWeight.Medium)
+          Text(`${this.lightBrightness}%`)
+            .fontSize(16)
+            .fontColor(ThemeColors?.primary || '#27AE60')
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+
+        Slider({
+          value: this.lightBrightness,
+          min: 0,
+          max: 100,
+          step: 5,
+          style: SliderStyle.OutSet
+        })
+          .blockColor(Color.White)
+          .trackColor('#E0E0E0')
+          .selectedColor(ThemeColors?.primary || '#27AE60')
+          .onChange((value: number) => { this.lightBrightness = value; })
+      }
+      .padding(16)
+      .margin(16)
+      .backgroundColor(Color.White)
+      .borderRadius(16)
+      .shadow({ radius: 8, color: 'rgba(0,0,0,0.05)' })
+
+      Text('光照设备')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .margin({ left: 16, top: 8 })
+        .alignSelf(ItemAlign.Start)
+
+      // 静态示例设备，移除所有动态数据绑定
+      List({ space: 12 }) {
+        ListItem() {
+          Row({ space: 12 }) {
+            Stack() {
+              Circle().width(50).height(50).fill('#E8F5E9')
+              Image($r('app.media.fill_light')).width(24).height(24).fillColor('#27AE60')
             }
+            Column({ space: 4 }) {
+              Text('补光灯 #1').fontSize(16).fontWeight(FontWeight.Medium)
+              Text('运行中').fontSize(13).fontColor('#27AE60')
+            }
+            .layoutWeight(1)
+            Toggle({ type: ToggleType.Switch, isOn: true })
+              .selectedColor(ThemeColors?.primary || '#27AE60')
+          }
+          .padding(16)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .shadow({ radius: 4, color: 'rgba(0,0,0,0.05)' })
+        }
+      }
+      .width('100%')
+      .height('auto')
+      .padding(16)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F8F9FA')
+  }
+}
+
+// ==================== 智慧灌溉场景（纯净版）====================
+@Component
+struct SmartIrrigationScene {
+  onClose: () => void = () => {};
+  @State soilMoisture: number = 65;
+  @State waterValveOpen: boolean = false;
+
+  build() {
+    Column({ space: 16 }) {
+      Row() {
+        Image($r('app.media.ic_back')).width(24).height(24).onClick(this.onClose)
+        Text('智慧灌溉系统')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
+      }
+      .padding(20)
+
+      Column({ space: 12 }) {
+        Text('土壤湿度监测').fontSize(18).fontWeight(FontWeight.Bold).alignSelf(ItemAlign.Start)
+
+        Row({ space: 20 }) {
+          Stack() {
+            Circle().width(120).height(120).fill('#E3F2FD')
+            Circle().width(100).height(100).fill(Color.White)
+            Text(`${this.soilMoisture}%`).fontSize(32).fontWeight(FontWeight.Bold).fontColor('#3498DB')
+          }
+          Column({ space: 8 }) {
+            Text('状态: 湿度适宜').fontSize(16).fontColor('#27AE60')
+            Text('上次灌溉: 2小时前').fontSize(13).fontColor('#7F8C8D')
+          }
+          .layoutWeight(1)
+        }
+        .padding(20)
+        .backgroundColor(Color.White)
+        .borderRadius(16)
+      }
+      .padding(16)
+
+      Button(this.waterValveOpen ? '💧 停止灌溉' : '💧 立即灌溉')
+        .width('90%')
+        .height(56)
+        .backgroundColor(this.waterValveOpen ? '#E74C3C' : '#3498DB')
+        .fontSize(18)
+        .borderRadius(28)
+        .shadow({ radius: 12, color: 'rgba(52, 152, 219, 0.3)', offsetY: 4 })
+        .onClick(() => { this.waterValveOpen = !this.waterValveOpen; })
+
+      Row({ space: 16 }) {
+        this.StatCard('今日用水', '120L', '💧', '#3498DB')
+        this.StatCard('灌溉次数', '3次', '📊', '#27AE60')
+        this.StatCard('节水率', '15%', '🌱', '#F39C12')
+      }
+      .padding(16)
+
+      List({ space: 12 }) {
+        ListItem() {
+          Row({ space: 12 }) {
+            Text('⏰').fontSize(24)
+            Column({ space: 4 }) {
+              Text('定时灌溉计划').fontSize(16).fontWeight(FontWeight.Medium)
+              Text('每天 08:00, 18:00 自动执行').fontSize(13).fontColor('#7F8C8D')
+            }
+            .layoutWeight(1)
+            Toggle({ type: ToggleType.Switch, isOn: true })
+          }
+          .padding(16)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+        }
+      }
+      .width('100%')
+      .height('auto')
+      .padding(16)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F8F9FA')
+  }
+
+  @Builder
+  StatCard(label: string, value: string, icon: string, color: string) {
+    Column({ space: 4 }) {
+      Text(icon).fontSize(28)
+      Text(value).fontSize(20).fontWeight(FontWeight.Bold).fontColor(color)
+      Text(label).fontSize(12).fontColor('#7F8C8D')
+    }
+    .layoutWeight(1)
+    .padding(16)
+    .backgroundColor(Color.White)
+    .borderRadius(12)
+    .shadow({ radius: 4, color: 'rgba(0,0,0,0.05)' })
+  }
+}
+
+// ==================== 害虫识别场景（纯净版）====================
+@Component
+struct PestRecognitionScene {
+  onClose: () => void = () => {};
+  @State isDetecting: boolean = false;
+  @State detectionResult: string = '';
+  @State confidence: number = 0;
+  @State imageUri: string = '';
+
+  build() {
+    Column({ space: 16 }) {
+      Row() {
+        Image($r('app.media.ic_back')).width(24).height(24).onClick(this.onClose)
+        Text('🐛 AI害虫识别')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
+      }
+      .padding(20)
+
+      Column({ space: 12 }) {
+        if (this.imageUri === '') {
+          Column({ space: 12 }) {
+            Text('📷').fontSize(48)
+            Text('点击拍照或上传图片').fontSize(14).fontColor('#7F8C8D')
+            Text('支持识别：蚜虫、红蜘蛛、白粉虱等常见害虫')
+              .fontSize(12)
+              .fontColor('#95A5A6')
+          }
+          .width('100%')
+          .height(200)
+          .backgroundColor('#F5F5F5')
+          .borderRadius(16)
+          .border({ width: 2, color: '#E0E0E0', style: BorderStyle.Dashed })
+          .onClick(() => { this.imageUri = 'app.media.sample_farm'; })
+        } else {
+          Image(this.imageUri)
+            .width('100%')
+            .height(200)
+            .objectFit(ImageFit.Cover)
+            .borderRadius(16)
+            .onClick(() => { this.imageUri = ''; })
+        }
+
+        Button(this.isDetecting ? '🔍 AI识别中...' : '🔍 开始识别')
+          .width('100%')
+          .height(50)
+          .backgroundColor(this.isDetecting ? '#95A5A6' : '#E74C3C')
+          .fontSize(16)
+          .enabled(!this.isDetecting && this.imageUri !== '')
+          .onClick(() => {
+            this.isDetecting = true;
+            setTimeout(() => {
+              this.isDetecting = false;
+              this.detectionResult = '发现蚜虫(轻度)';
+              this.confidence = 92;
+            }, 2000);
           })
       }
       .padding(16)
-      .backgroundColor('#ffaaabff')
-      .backdropBlur(10);
 
-      Grid() {
-        ForEach(this.deviceList, (item: Device,value) => {
-          GridItem() {
-            Column() {
-              Stack() {
-                Circle()
-                  .width(60)
-                  .height(60)
-                  .fill(item.switch ? '#3498DB30' : '#BDC3C730');
-
-                Image(this.getDeviceIcon(item.type_id))
-                  .width(30)
-                  .height(30);
-              }
-
-              Text(item.name)
-                .fontSize(14)
-                .margin({ top: 8 })
-                .textAlign(TextAlign.Center);
-
-              Text(item.switch ? "已开启" : "已关闭")
-                .fontSize(12)
-                .fontColor(item.switch ? '#27AE60' : '#95A5A5');
+      if (this.detectionResult !== '') {
+        Column({ space: 12 }) {
+          Row({ space: 8 }) {
+            Text('⚠️').fontSize(24)
+            Column({ space: 4 }) {
+              Text(this.detectionResult)
+                .fontSize(18)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#E74C3C')
+              Text(`置信度: ${this.confidence}%`).fontSize(14).fontColor('#7F8C8D')
             }
+          }
+          .padding(16)
+          .backgroundColor('#FFEBEE')
+          .borderRadius(12)
+          .width('100%')
+
+          Column({ space: 8 }) {
+            Text('🎯 防治建议').fontSize(16).fontWeight(FontWeight.Bold)
+            Text('1. 建议使用黄色粘虫板物理防治\n2. 可使用苦参碱等生物农药喷洒\n3. 保持通风，控制湿度在60%以下')
+              .fontSize(14)
+              .fontColor('#2C3E50')
+              .lineHeight(20)
+          }
+          .padding(16)
+          .backgroundColor('#FFF8E1')
+          .borderRadius(12)
+          .width('100%')
+        }
+        .padding(16)
+      }
+
+      Text('识别记录')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .margin({ left: 16 })
+        .alignSelf(ItemAlign.Start)
+
+      List({ space: 8 }) {
+        ListItem() {
+          Row({ space: 12 }) {
+            Text('🐛').fontSize(24)
+            Column({ space: 4 }) {
+              Text('发现蚜虫(轻)').fontSize(15).fontWeight(FontWeight.Medium)
+              Text('昨日 16:45').fontSize(12).fontColor('#95A5A6')
+            }
+            .layoutWeight(1)
+          }
+          .padding(12)
+          .backgroundColor(Color.White)
+          .borderRadius(8)
+        }
+      }
+      .width('100%')
+      .height('auto')
+      .padding(16)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F8F9FA')
+  }
+}
+
+// ==================== 智慧环境监测场景（纯净版）====================
+@Component
+struct EnvironmentMonitorScene {
+  onClose: () => void = () => {};
+  @State currentTemp: number = 26.5;
+  @State currentHumidity: number = 68;
+  @State co2Level: number = 450;
+  @State lightIntensity: number = 12000;
+
+  build() {
+    Column({ space: 16 }) {
+      Row() {
+        Image($r('app.media.ic_back')).width(24).height(24).onClick(this.onClose)
+        Text('🌡️ 环境监测中心')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .layoutWeight(1)
+          .textAlign(TextAlign.Center)
+      }
+      .padding(20)
+
+      Scroll() {
+        Column({ space: 16 }) {
+          Grid() {
+            GridItem() { this.EnvCard('温度', `${this.currentTemp}℃`, '🔥', '#E74C3C', '适宜范围: 20-28℃') }
+            GridItem() { this.EnvCard('湿度', `${this.currentHumidity}%`, '💧', '#3498DB', '适宜范围: 60-80%') }
+            GridItem() { this.EnvCard('CO2', `${this.co2Level}ppm`, '🌬️', '#27AE60', '适宜范围: 400-800ppm') }
+            GridItem() { this.EnvCard('光照', `${this.lightIntensity}Lx`, '☀️', '#F39C12', '适宜范围: 10000-20000Lx') }
+          }
+          .columnsTemplate('1fr 1fr')
+          .rowsGap(12)
+          .columnsGap(12)
+          .padding(16)
+
+          Column({ space: 12 }) {
+            Text('📈 24小时温度趋势')
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .alignSelf(ItemAlign.Start)
+
+            Row({ space: 4 }) {
+              ForEach([22, 23, 24, 26, 28, 29, 28, 26], (temp: number) => {
+                Column() {
+                  Blank()
+                    .width(30)
+                    .height(temp * 3)
+                    .backgroundColor(temp > 27 ? '#E74C3C' : '#3498DB')
+                    .borderRadius(4)
+                  Text(`${temp}°`).fontSize(11).margin({ top: 4 })
+                }
+              }, (temp: number) => temp.toString())
+            }
+            .width('100%')
             .padding(12)
             .backgroundColor(Color.White)
             .borderRadius(12)
-            .shadow({ radius: 4, color: '#00000010' })
-            .onClick(() => {
-              let f = this.toggleDevice(item)
-              this.deviceList[value] = f;
-            });
           }
-        });
+          .padding(16)
+
+          Column({ space: 12 }) {
+            Text('⚠️ 实时告警')
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .alignSelf(ItemAlign.Start)
+
+            Row({ space: 12 }) {
+              Text('⚠️').fontSize(20)
+              Column({ space: 4 }) {
+                Text('大棚东侧温度偏高(32℃)').fontSize(14).fontWeight(FontWeight.Medium)
+                Text('10:23').fontSize(12).fontColor('#95A5A6')
+              }
+              .layoutWeight(1)
+            }
+            .padding(12)
+            .backgroundColor('#FFEBEE')
+            .borderRadius(8)
+          }
+          .padding(16)
+
+          Button('📊 导出环境报告')
+            .width('90%')
+            .height(48)
+            .backgroundColor(ThemeColors?.primary || '#27AE60')
+            .margin({ bottom: 20 })
+            .onClick(() => {})
+        }
+        .width('100%')
       }
-      .columnsTemplate('1fr 1fr 1fr')
-      .rowsGap(12)
-      .columnsGap(12)
-      .padding(16)
-      .layoutWeight(1);
+      .layoutWeight(1)
     }
+    .width('100%')
+    .height('100%')
     .backgroundColor('#F8F9FA')
-    .height('100%');
   }
 
-  private toggleDevice(item: Device): Device {
-    item.switch = item.switch ? 0 : 1;
-    _IoTad.set_waterValve_by_id(item.switch ? "on" : "off");
-    _IoTad.set_LED_brightness_by_id(item.switch?5000:1)
-    return new Device(item.name,item.switch,item.type_id)
-  }
-
-  private closePanel(): void {
-    this.is_show = false;
-    this._height = "0%";
-  }
-
-  private getDeviceIcon(typeId: number): Resource {
-    return typeId < 2000 ? $r("app.media.fill_light") : $r("app.media.water_valve");
-  }
-}
-
-@Component
-struct IrrigationScene {
-  @Link arr_farmland: farmland[];
-  @Link is_show: boolean;
-  @Link _height: string;
-  @State isTemperatureControlDeviceShow: boolean = false;
-  @State soilHumidityRemaining: number = 65;
-
-  build(): void {
-    Stack(){
-      Column() {
-        Row() {
-          Image($r("app.media.ic_back"))
-            .fillColor('#ff111141')
-            .width(24)
-            .height(24)
-            .onClick(() => this.closePanel());
-          Text("灌溉节水模式")
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center);
-        }
-        .padding(16)
-        .backgroundColor('#ffaaabff')
-        .backdropBlur(10);
-
-        Row() {
-          FarmEnvItem({
-            icon: $r("app.media.ic_temp"),
-            value: '26℃',
-            title: '棚内温度',
-            color: '#E74C3C'
-          });
-
-          FarmEnvItem({
-            icon: $r("app.media.ic_humidity"),
-            value: `${this.soilHumidityRemaining}%`,
-            //value: '55%',
-            title: '土壤湿度',
-            color: '#3498DB'
-          });
-
-          FarmEnvItem({
-            icon: $r("app.media.ic_gas"),
-            value: this.getCO2Status(),
-            //value: '正常',
-            title: 'CO₂浓度',
-            color: '#ff544539'
-          });
-        }
-        .padding(16)
-        .justifyContent(FlexAlign.SpaceEvenly);
-
-        List() {
-          FarmDeviceItem({
-            params: {
-              icon: $r("app.media.ic_camera"),
-              title: "农田监控",
-              status: "在线",
-              buttonText: "实时查看",
-              onAction: () => this.viewCamera()
-            }
-          });
-
-          FarmDeviceItem({
-            params: {
-              icon: $r("app.media.ac_icon"),
-              title: "棚内温控",
-              status: "26℃ 恒温模式",
-              buttonText: "远程调节",
-              onAction: () => this.isTemperatureControlDeviceShow = true
-            }
-          });
-
-          FarmDeviceItem({
-            params: {
-              icon: $r("app.media.ic_feeder"),
-              title: "水肥灌溉",
-              //status: `土壤湿度：${this.soilHumidityRemaining}%`,
-              status: `土壤湿度：${this.soilHumidityRemaining}%\n ${this.getHumidityTip(this.soilHumidityRemaining)}`,
-              buttonText: "立即灌溉",
-              onAction: () => this.autoIrrigation()
-            }
-          });
-        }
-        .borderRadius(16)
-        .margin(16)
-        .backgroundColor(Color.White)
-        .shadow({ radius: 8, color: '#00000010' });
+  @Builder
+  EnvCard(title: string, value: string, icon: string, color: string, subtitle: string) {
+    Column({ space: 8 }) {
+      Row({ space: 8 }) {
+        Text(icon).fontSize(24)
+        Text(title).fontSize(14).fontColor('#7F8C8D')
       }
-      .backgroundColor('#F8F9FA')
-      .height('100%');
+      .alignSelf(ItemAlign.Start)
 
-      if (this.isTemperatureControlDeviceShow) {
-        ControlTemp({
-          is_show: this.isTemperatureControlDeviceShow,
-          arr_farmland: this.arr_farmland
-        });
-      }
-    }
-  }
-
-  private viewCamera(): void {
-  }
-
-  private autoIrrigation(): void {
-    this.soilHumidityRemaining = Math.max(this.soilHumidityRemaining +10, 80);
-  }
-
-  private closePanel(): void {
-    this.is_show = false;
-    this._height = "0%";
-  }
-  private getHumidityTip(humidity: number): string {
-    if (humidity < 60) {
-      return "⚠️ 偏干，建议灌溉";
-    } else if (humidity > 80) {
-      return "⚠️ 过湿，注意排水";
-    } else {
-      return "✅ 湿度适宜";
-    }
-  }
-  private getCO2Status(): string {
-    const co2 = 580; // 这里接传感器
-    if (co2 > 1000) return "⚠️ 超高";
-    if (co2 > 600) return "⚠️ 偏高";
-    return "✅ 正常";
-  }
-}
-
-@Component
-struct FarmEnvItem {
-  @Prop icon: Resource;
-  @Prop value: string;
-  @Prop title: string;
-  @Prop color: string = '#ffaaabff';
-
-  build(): void {
-    Column() {
-      Image(this.icon)
-        .width(40)
-        .height(40)
-        .fillColor(this.color);
-
-      Text(this.value)
-        .fontSize(20)
-        .fontColor(this.color)
-        .margin({ top: 8 })
-        .fontWeight(FontWeight.Medium);
-
-      Text(this.title)
-        .fontSize(12)
-        .fontColor('#7F8C8D');
+      Text(value).fontSize(28).fontWeight(FontWeight.Bold).fontColor(color)
+      Text(subtitle).fontSize(11).fontColor('#B0BEC5')
     }
     .padding(16)
     .backgroundColor(Color.White)
     .borderRadius(12)
-    .shadow({ radius: 4, color: '#00000010' });
-  }
-}
-
-@Component
-struct FarmDeviceItem {
-  @Prop params: ControlItemParams;
-
-  build(): void {
-    Row() {
-      Image(this.params.icon)
-        .width(32)
-        .height(32)
-        .margin({ right: 16 });
-
-      Column() {
-        Text(this.params.title)
-          .fontSize(16)
-          .fontColor('#2C3E50');
-        Text(this.params.status)
-          .fontSize(12)
-          .fontColor('#7F8C8D');
-      }
-      .layoutWeight(1);
-
-      Button(this.params.buttonText)
-        .type(ButtonType.Normal)
-        .backgroundColor('#ffaaabff')
-        .fontColor(Color.White)
-        .borderRadius(20)
-        .padding({ left: 16, right: 16 })
-        .onClick(this.params.onAction);
-    }
-    .padding(16)
-    .width('100%');
+    .shadow({ radius: 4, color: 'rgba(0,0,0,0.05)' })
+    .alignItems(HorizontalAlign.Start)
   }
 }

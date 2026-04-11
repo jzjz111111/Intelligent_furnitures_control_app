@@ -6,9 +6,9 @@
         "type": "HarmonyOS",
         "material": {
           "certpath": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.cer",
-          "storePassword": "0000001B394BD0CAD311A61A45BCA9AF5590E452DA1C83E579FD484A8B9BB4484400B848A107A1360F9E70",
+          "storePassword": "0000001A071DB16E7FD8E43B6E52ECDC16875E05C9471BFF5051F32F1C0DBE22D0BA392F53809AC5B4D0",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BFCCFED4F4A4989BEC41E9C0E8E6A9E53D86299088463559E020DD27E83001474E1C5A5A3F1BB1D",
+          "keyPassword": "0000001A834430A4DB8E7CF5B903D14DE770EF834871793496885713025A079F91378B21C5207A19B268",
           "profile": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.p12"

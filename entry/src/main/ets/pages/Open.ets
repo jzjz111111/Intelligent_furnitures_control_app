@@ -221,7 +221,7 @@ struct NewPage {
                 Text("⏳")
                   .fontSize(18)
               } else {
-                Text("🚀")
+                Text("")
                   .fontSize(18)
               }
               Text(this.is_landing ? "登录中..." : "登 录")
@@ -231,7 +231,7 @@ struct NewPage {
           }
           .width("90%")
           .height(52)
-          .backgroundColor(this.is_landing ? ThemeColors.textTertiary : ThemeColors.primary)
+          .backgroundColor(this.is_landing ? ThemeColors.textTertiary : ThemeColors.primaryLight)
           .borderRadius(26)
           .shadow({
             color: this.is_landing ? 'rgba(0,0,0,0.1)' : ThemeColors.techGlow,
@@ -263,7 +263,7 @@ struct NewPage {
           // 注册按钮
           Button() {
             Row({ space: 8 }) {
-              Text("📝")
+              Text("")
                 .fontSize(16)
               Text("注册账号")
                 .fontSize(14)

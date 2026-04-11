@@ -35,6 +35,10 @@
     {
       "name": "permission_location_reason",
       "value": "用于获取您的位置信息，展示农场所在地区"
+    },
+    {
+      "name": "internet_reason",
+      "value": "需要网络权限以调用AI识别服务"
     }
   ]
 }

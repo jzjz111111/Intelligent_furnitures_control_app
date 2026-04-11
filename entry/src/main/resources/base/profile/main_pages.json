@@ -18,7 +18,8 @@
     "pages/scene_page",
     "pages/Search_devices",
     "pages/test_Page",
-    "pages/try"
+    "pages/try",
+    "pages/ai_pest"
 
 
   ],

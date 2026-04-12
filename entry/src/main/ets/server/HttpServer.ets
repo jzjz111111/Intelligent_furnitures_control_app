@@ -1,5 +1,7 @@
 import { Context } from '@kit.AbilityKit';
 import fs from '@ohos.file.fs';
+import relationalStore from '@ohos.data.relationalStore';
+
 import {
   openAgriDb,
   updateUserAvatar,
@@ -21,7 +23,8 @@ import {
   deleteVideoRecord,
   getLatestVideoPerDevice,
   addCapturePhoto,
-  getPhotoListByDevice
+  getPhotoListByDevice,
+  addDeviceToDatabase
 } from '../common/db';
 import { alarmService } from '../repository/roomDatabase';
 import buffer from '@ohos.buffer';
@@ -116,6 +119,14 @@ interface SensorData {
   co2: number;
 }
 
+// 添加设备请求体
+interface AddDeviceRequest {
+  farmlandId: number;
+  deviceId: string;
+  deviceName: string;
+  typeId: number;
+}
+
 // 设备状态
 interface DeviceStatus {
   status: string;
@@ -127,6 +138,23 @@ interface DeviceInfo {
   deviceId: string;
   name: string;
   status: string;
+}
+
+// 基础响应接口 (在添加设备响应之前添加)
+interface BaseResponse {
+  code: number;
+  msg: string;
+}
+
+// 设备添加响应数据
+interface AddDeviceData {
+  deviceId: string;
+  message: string;
+}
+
+// 添加设备响应
+interface AddDeviceResponse extends BaseResponse {
+  data: AddDeviceData;
 }
 
 // 告警响应
@@ -180,7 +208,8 @@ interface FarmDeleteBody {
 
 // 删除设备请求体
 interface DeviceDeleteBody {
-  deviceId: number;
+  farmlandId: number;
+  deviceName: string;
 }
 
 
@@ -949,6 +978,43 @@ export class MyHttpServer {
       }
     }
 
+    // 添加设备接口 (在删除设备接口之前添加)
+    if (path === "/api/device/add" && body) {
+      try {
+        const b: AddDeviceRequest = body as AddDeviceRequest;
+
+        // 参数校验
+        if (!b.farmlandId || !b.deviceId || !b.deviceName || !b.typeId) {
+          return this.fail("参数缺失:需要提供 farmlandId、deviceId、deviceName、typeId");
+        }
+
+        const store = await openAgriDb(this.context);
+
+        // 调用数据库方法添加设备
+        // 注意:需要在 db.ts 中添加 addDevice 方法
+        const deviceId = await addDeviceToDatabase(
+          store,
+          b.farmlandId,
+          b.deviceId,
+          b.deviceName,
+          b.typeId
+        );
+
+        const res: AddDeviceResponse = {
+          code: 200,
+          data: {
+            deviceId: deviceId.toString(),
+            message: "设备添加成功"
+          },
+          msg: "success"
+        };
+
+        return JSON.stringify(res);
+      } catch (err) {
+        console.error("添加设备失败", err);
+        return this.fail("添加设备失败");
+      }
+    }
     // 删除农田接口
     if (path === "/api/farm/delete" && body) {
       try {
@@ -980,12 +1046,19 @@ export class MyHttpServer {
       try {
         const b: DeviceDeleteBody = body as DeviceDeleteBody;
 
-        if (!b.deviceId) {
-          return this.fail("参数缺失：缺少 deviceId");
+        // 参数校验
+        if (!b.farmlandId || !b.deviceName) {
+          return this.fail("参数缺失：需要提供 farmlandId 和 deviceName");
         }
 
         const store = await openAgriDb(this.context);
-        const success = await deleteDevice(store, b.deviceId);
+
+        // 通过农田ID和设备名删除设备
+        const predicates = new relationalStore.RdbPredicates('Device');
+        predicates.equalTo('zone_id', b.farmlandId).equalTo('name', b.deviceName);
+        const rows = await store.delete(predicates);
+
+        const success = rows > 0;
 
         if (success) {
           const res: CommonResponse = {
@@ -1000,7 +1073,6 @@ export class MyHttpServer {
         return this.fail("删除设备失败");
       }
     }
-
 
 
     if (path === "/api/video/uploadToGallery" && body) {

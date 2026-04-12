@@ -6,6 +6,13 @@ import { curves } from '@kit.ArkUI';
 import { FarmlandDatabase } from "../data/RdbStorage";
 import common from '@ohos.app.ability.common';
 import http from '@ohos.net.http';
+//import relationalStore from '@ohos.data.relationalStore';
+
+interface DeviceDeleteResponse {
+  code: number;
+  msg: string;
+  data?: Object;
+}
 
 interface PhotoData{
   path?:string;
@@ -96,18 +103,78 @@ export struct RemoteControlPage {
     }
   }
 
+  // 根据农田ID和设备名获取设备数据库ID
+  /*private async getDeviceId(farmlandId: number, deviceName: string): Promise<number> {
+    try {
+      const predicates = new relationalStore.RdbPredicates('Device');
+      predicates.equalTo('zone_id', farmlandId).equalTo('name', deviceName);
+      const resultSet = await this.db!.getRdbStore().query(predicates, ['id']);
+
+      let deviceId = -1;
+      if (resultSet.goToFirstRow()) {
+        deviceId = resultSet.getLong(0);
+      }
+      resultSet.close();
+      return deviceId;
+    } catch (err) {
+      console.error("获取设备ID失败:", err);
+      return -1;
+    }
+  }*/
 
   //删除逻辑
   private async deleteDevice(index: number) {
     if (!this.farm || !this.farm.device_s || !this.db) return;
-    const delDevice = this.farm.device_s[index];
-    let r_id = await this.db.getFarmlandsIdByName(this.farm.name);
-    await this.db.deleteDeviceByFarmlandIdAndName(r_id, delDevice.name);
-    this.farm.device_s = this.farm.device_s.filter(
-      (element) => element.name !== delDevice.name
-    );
-    if (this.currentFarm) {
-      this.currentFarm.device_s = [...this.farm.device_s];
+
+    try {
+      const delDevice = this.farm.device_s[index];
+      let r_id = await this.db.getFarmlandsIdByName(this.farm.name);
+
+      // 1. 先调用后端接口删除设备
+      const httpRequest = http.createHttp();
+      const response = await httpRequest.request(
+        'http://127.0.0.1:8080/api/device/delete',
+        {
+          method: http.RequestMethod.POST,
+          header: { 'Content-Type': 'application/json' },
+          extraData: JSON.stringify({
+            farmlandId: r_id,
+            deviceName: delDevice.name
+          })
+        }
+      );
+
+      // 2. 检查后端响应
+      if (response.responseCode === 200) {
+        const result: DeviceDeleteResponse = JSON.parse(response.result as string) as DeviceDeleteResponse;
+
+        if (result.code === 200) {
+          // 后端删除成功,再删除本地数据库
+          await this.db.deleteDeviceByFarmlandIdAndName(r_id, delDevice.name);
+
+          // 更新本地列表
+          this.farm.device_s = this.farm.device_s.filter(
+            (element) => element.name !== delDevice.name
+          );
+
+          if (this.currentFarm) {
+            this.currentFarm.device_s = [...this.farm.device_s];
+          }
+
+          console.log("✅ 设备删除成功");
+        } else {
+          console.error("后端删除失败:", result.msg);
+          AlertDialog.show({ message: result.msg || "删除失败" });
+        }
+      } else {
+        console.error("网络请求失败");
+        AlertDialog.show({ message: "网络错误,请重试" });
+      }
+
+      httpRequest.destroy();
+    } catch (err) {
+      console.error("删除设备异常:", err);
+      AlertDialog.show({ message: "删除失败,请重试" });
     }
   }
 

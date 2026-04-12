@@ -106,6 +106,59 @@ CREATE TABLE IF NOT EXISTS CapturePhoto (
   capture_time INTEGER NOT NULL
 );`;
 
+// 添加设备到数据库
+export async function addDeviceToDatabase(
+  store: relationalStore.RdbStore,
+  farmlandId: number,
+  deviceId: string,
+  deviceName: string,
+  typeId: number
+): Promise<number> {
+  try {
+    // 检查设备是否已存在
+    const predicates = new relationalStore.RdbPredicates('Device');
+    predicates.equalTo('zone_id', farmlandId).equalTo('name', deviceName + ':' + farmlandId);
+    const resultSet = await store.query(predicates);
+
+    if (resultSet.goToFirstRow()) {
+      resultSet.close();
+      throw new Error("该农田下已存在同名设备");
+    }
+    resultSet.close();
+
+    // 插入新设备
+    const data = {
+      name: deviceName + ':' + farmlandId,
+      zone_id: farmlandId,
+      device_type_id: typeId,
+      sn: deviceId,
+      status: 'offline'
+    };
+
+    const id = await store.insert('Device', data);
+    console.log("✅ 设备添加成功, ID:", id);
+    return id;
+  } catch (err) {
+    console.error('添加设备失败:', err);
+    throw err;
+  }
+}
+
+// 根据设备ID删除设备
+export async function deleteDeviceByDeviceId(
+  store: relationalStore.RdbStore,
+  deviceId: number
+): Promise<boolean> {
+  try {
+    const predicates = new relationalStore.RdbPredicates('Device');
+    predicates.equalTo('id', deviceId);
+    const rows = await store.delete(predicates);
+    return rows > 0;
+  } catch (err) {
+    console.error('删除设备失败:', err);
+    throw err;
+  }
+}
 // 打开/创建数据库
 // 第109-118行 openAgriDb 函数
 export async function openAgriDb(context: any): Promise<relationalStore.RdbStore> {
@@ -308,17 +361,11 @@ export async function runInitSql(store: relationalStore.RdbStore, context: any) 
   try {
     const resourceManager = context.resourceManager;
 
-    // 获取文件描述符
-    const fileDescriptor = resourceManager.getRawFileDescriptor('init.sql');
-    const fd = fileDescriptor.fd;
-    const length = fileDescriptor.length;
-
-    // 读取文件内容
-    const buf = new ArrayBuffer(length);
-    fileio.readSync(fd, buf, { offset: 0, length: length });
+    // 直接获取文件内容（返回 ArrayBuffer）
+    const content: ArrayBuffer = resourceManager.getRawFileContent('init.sql');
 
     // 将 ArrayBuffer 转为字符串
-    const uint8Array: Uint8Array = new Uint8Array(buf);
+    const uint8Array: Uint8Array = new Uint8Array(content);
     const sql: string = String.fromCharCode.apply(null, Array.from(uint8Array) as any);
 
     // 分割并执行 SQL 语句

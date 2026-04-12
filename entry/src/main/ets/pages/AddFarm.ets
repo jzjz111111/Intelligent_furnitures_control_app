@@ -1,15 +1,13 @@
 import { FarmlandDatabase } from "../data/RdbStorage";
-import { _IoTad } from "../pages/scan_devices";
 import {  farmland } from "../tool/classes";
 import picker from '@ohos.file.picker';
 import { ThemeColors } from '../utils/theme';
 import common from '@ohos.app.ability.common';
 import http from '@ohos.net.http';
-import fs from '@ohos.file.fs';
 import util from '@ohos.util';
-import fileUri from '@ohos.file.fileuri';
-import resourceManager from '@ohos.resourceManager';
-import fileio from '@ohos.fileio';
+import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
+import fs from '@ohos.file.fs';
+
 
 interface FarmUploadResponseData {
   imagePath: string;
@@ -37,7 +35,6 @@ export struct add_farmland_page {
   @State dev_name: string = ''
   @Link is_show: boolean
   @State avatarUri: string = ''
-
   private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {
@@ -71,6 +68,7 @@ export struct add_farmland_page {
           this.selectAvatar() // 点击就打开相册
         })
         .margin({ bottom: 15 })
+
         // ========== 头像区域结束 ==========
         TextInput({ placeholder: '输入农田名称' })
           .onChange((value) => {
@@ -79,7 +77,7 @@ export struct add_farmland_page {
           .backgroundColor(ThemeColors.bgGlass)
           .fontColor(ThemeColors.textPrimary)
           .placeholderColor(ThemeColors.textTertiary)
-        Row(){
+        Row() {
           Button('完成')
             .backgroundColor(ThemeColors.primary)
             .fontColor(ThemeColors.bgCard)
@@ -125,27 +123,51 @@ export struct add_farmland_page {
                     AlertDialog.show({ message: "图片读取失败" });
                     return;
                   }*/
-                  // 读取文件并转为 Base64
+
+                  // 读取文件并转为 Base64（复制到沙箱后读取）
                   try {
+                    console.log("源URI:", this.avatarUri);
+
+                    // 1. 获取应用沙箱目录
                     const context = getContext(this) as common.UIAbilityContext;
-                    // 去掉 file:// 前缀
-                    const uriPath = this.avatarUri.replace('file://', '');
+                    const tempDir = context.cacheDir + '/temp_avatar.jpg';
+                    console.log("沙箱路径:", tempDir);
 
-                    // 通过 resourceManager 获取文件描述符
-                    const fileDescriptor: resourceManager.RawFileDescriptor = await context.resourceManager.getRawFileDescriptor(uriPath);
-                    const fd: number = fileDescriptor.fd;
-                    const stat = fileio.fstatSync(fd);
-                    const buffer = new ArrayBuffer(stat.size);
-                    fileio.readSync(fd, buffer, { offset: 0, length: stat.size });
+                    // 2. 复制文件到沙箱（通过 URI 直接复制）
+                    const srcFile = fs.openSync(this.avatarUri, fs.OpenMode.READ_ONLY);
+                    const destFile = fs.openSync(tempDir, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
 
-                    const uint8Array = new Uint8Array(buffer);
-                    const base64Helper = new util.Base64Helper();
+                    const stat = fs.statSync(this.avatarUri);
+                    const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
+                    fs.readSync(srcFile.fd, buffer, { offset: 0, length: stat.size });
+                    fs.writeSync(destFile.fd, buffer);
+
+                    fs.closeSync(srcFile);
+                    fs.closeSync(destFile);
+
+                    // 3. 从沙箱读取并转为 Base64
+                    const destStat = fs.statSync(tempDir);
+                    const destBuffer: ArrayBuffer = new ArrayBuffer(destStat.size);
+                    const destFd = fs.openSync(tempDir, fs.OpenMode.READ_ONLY);
+                    fs.readSync(destFd.fd, destBuffer, { offset: 0, length: destStat.size });
+                    fs.closeSync(destFd);
+
+                    const uint8Array: Uint8Array = new Uint8Array(destBuffer);
+                    const base64Helper: util.Base64Helper = new util.Base64Helper();
                     requestBody.base64 = base64Helper.encodeToStringSync(uint8Array);
 
-                    console.log("图片读取成功，base64长度:", requestBody.base64.length);
+                    console.log("✅ 图片读取成功，base64长度:", requestBody.base64.length);
+
+                    // 4. 清理临时文件
+                    try {
+                      fs.unlinkSync(tempDir);
+                    } catch (e) {
+                      console.warn("清理临时文件失败:", e);
+                    }
+
                   } catch (err) {
-                    console.error("读取图片失败:", JSON.stringify(err));
-                    AlertDialog.show({ message: "图片读取失败" });
+                    console.error("读取图片失败:", err);
+                    AlertDialog.show({ message: "图片读取失败: " + (err as Error).message });
                     return;
                   }
 
@@ -171,7 +193,8 @@ export struct add_farmland_page {
                           ).then((success) => {
                             if (success != -1) {
                               setTimeout(() => {
-                                this.arr.push(new farmland(this.dev_name, [], result.data.imagePath, result.data.zoneId))
+                                this.arr.push(new farmland(this.dev_name, [], result.data.imagePath,
+                                  result.data.zoneId))
                               }, 500)
                               AlertDialog.show({ message: "农田创建成功！" })
                             } else {
@@ -227,23 +250,44 @@ export struct add_farmland_page {
     .backgroundColor('rgba(13, 51, 40, 0.65)')
 
   }
-  // 打开相册选择头像
+
   async selectAvatar() {
     try {
-      // 1. 创建选择配置
+      const context = getContext(this) as common.UIAbilityContext;
+
+      // 1. 申请权限
+      const atManager = abilityAccessCtrl.createAtManager();
+      const permissionResult = await atManager.requestPermissionsFromUser(context, ['ohos.permission.READ_IMAGEVIDEO']);
+
+      // 2. 检查是否授权成功 (0 表示允许)
+      if (permissionResult.authResults[0] !== 0) {
+        // 权限申请失败，弹窗询问是否重新申请
+        AlertDialog.show({
+          title: "需要相册权限",
+          message: "未获得相册权限，将无法选择照片",
+          primaryButton: {
+            value: "开启",
+            action: () => {
+              // 用户点击"开启"，重新调用申请权限
+              this.selectAvatar();
+            }
+          },
+          secondaryButton: {
+            value: "取消",
+            action: () => {}
+          }
+        });
+        return;
+      }
+
+      // 3. 打开相册
       let photoOption = new picker.PhotoSelectOptions();
-
-      // 2. 只允许选图片
       photoOption.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-
-      // 3. 最多选1张
       photoOption.maxSelectNumber = 1;
 
-      // 4. 打开相册
       const photoPicker = new picker.PhotoViewPicker();
       const selectResult = await photoPicker.select(photoOption);
 
-      // 5. 获取选中的图片地址
       if (selectResult.photoUris && selectResult.photoUris.length > 0) {
         this.avatarUri = selectResult.photoUris[0];
         console.log("选中头像地址：", this.avatarUri);
@@ -252,6 +296,5 @@ export struct add_farmland_page {
       console.error("选择图片失败：", err);
     }
   }
+
 }
-
-

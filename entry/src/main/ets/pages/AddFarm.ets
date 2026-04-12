@@ -3,7 +3,7 @@ import { _IoTad } from "../pages/scan_devices";
 import {  farmland } from "../tool/classes";
 import picker from '@ohos.file.picker';
 import { ThemeColors } from '../utils/theme';
-import common from '@ohos.app.ability.common';
+//import common from '@ohos.app.ability.common';
 import http from '@ohos.net.http';
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';

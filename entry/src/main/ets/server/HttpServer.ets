@@ -1114,7 +1114,7 @@ export class MyHttpServer {
 
         // 通过农田ID和设备名删除设备
         const predicates = new relationalStore.RdbPredicates('Device');
-        predicates.equalTo('zone_id', b.farmlandId).equalTo('name', b.deviceName);
+        predicates.equalTo('zone_id', b.farmlandId).equalTo('name', b.deviceName + ':' + b.farmlandId);
         const rows = await store.delete(predicates);
 
         const success = rows > 0;

@@ -44,6 +44,12 @@ interface WarnHistoryResponseItem {
   createTime: string;
 }
 
+interface BackendFarmItem {
+  name: string;
+  avatar: string;
+  zoneId: number;
+}
+
 
 @Entry
 @Component
@@ -174,6 +180,7 @@ export struct homepage {
 
     setTimeout(async () => {
       if (!this.db) return;
+      await this.syncFarmlandsFromBackend();
       let farmlandList: farmland[] = await this.db.getAllFarmlands()
       if (farmlandList.length == 0) {
         AlertDialog.show({
@@ -356,6 +363,39 @@ export struct homepage {
       httpRequest.destroy();
     }
   }
+  async syncFarmlandsFromBackend() {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    try {
+      const url = 'http://127.0.0.1:8080/api/farm/list';
+      const response: http.HttpResponse = await httpRequest.request(url, {
+        method: http.RequestMethod.GET
+      });
+
+      const result: Record<string, Object | Array<BackendFarmItem>> = JSON.parse(response.result.toString()) as Record<string, Object | Array<BackendFarmItem>>;
+      if (result.code === 200 && Array.isArray(result.data)) {
+        const backendFarms: BackendFarmItem[] = result.data as BackendFarmItem[];
+
+        for (const farm of backendFarms) {
+          // 检查本地是否已存在该农田
+          const localFarms: farmland[] = await this.db!.getAllFarmlands();
+          const exists: boolean = localFarms.some((f: farmland) => f.name === farm.name);
+
+          if (!exists) {
+            // 将后端农田同步到本地
+            await this.db!.insertFarmland(
+              new farmland(farm.name, [], farm.avatar || '', farm.zoneId || 0)
+            );
+            console.log(`✅ 同步农田到本地: ${farm.name}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("同步农田数据失败:", err);
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
 
 
   async requestLocation() {

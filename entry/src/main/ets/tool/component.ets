@@ -457,10 +457,19 @@ export struct add_device_page {
 
                   if (result.code === 200) {
                     // ✅ 后端成功后，只更新 UI，不操作本地数据库
-                    const newDevice = new Device(this.dev_name, 0, this.type);
-                    this.arr = [...this.arr, newDevice];
-                    this.farmland1.device_s = this.arr;
-                    console.log("✅ 设备添加成功");
+                    let success = await this.db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type);
+
+                    if (success === 1) {
+                      // 本地保存成功后，更新 UI
+                      const newDevice = new Device(this.dev_name, 0, this.type);
+                      this.arr = [...this.arr, newDevice];
+                      this.farmland1.device_s = this.arr;
+                      console.log("✅ 设备添加成功");
+                    } else {
+                      AlertDialog.show({
+                        message: '本地保存失败，请重试'
+                      });
+                    }
                   } else {
                     AlertDialog.show({
                       message: (result.msg as string) || '添加失败'

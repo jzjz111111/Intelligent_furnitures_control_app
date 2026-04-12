@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.cer",
+          "certpath": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.cer",
+          "storePassword": "0000001A071DB16E7FD8E43B6E52ECDC16875E05C9471BFF5051F32F1C0DBE22D0BA392F53809AC5B4D0",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B4374DDA5E88F691137BB275ED077E4B2D77A12D31DBA51D67852D0C6C172BEDC06B013D4DAEDBE",
-          "profile": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.p7b",
+          "keyPassword": "0000001A834430A4DB8E7CF5B903D14DE770EF834871793496885713025A079F91378B21C5207A19B268",
+          "profile": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\ASUS\\.ohos\\config\\default_Intelligent_furnitures_control_app_DjqvEEbWqXvINUex6CGvHvDPswq_zxIurK5BNZY3IzY=.p12",
-          "storePassword": "0000001BCA4EF1387B558C04D52A69CBC04992B7EBBAFA9691E26759A6E476787CD3113E4E40A967DB0E34"
+          "storeFile": "C:\\Users\\DXT\\.ohos\\config\\default_SmartFarm_eHvl8qzyjt6_h2J6jGFm0FoklCYNqw5fJwzKOPtyoV8=.p12"
         }
       }
     ],
@@ -21,13 +21,6 @@
         "signingConfig": "default",
         "compatibleSdkVersion": "5.0.2(14)",
         "runtimeOS": "HarmonyOS",
-        "buildOption": {
-          "strictMode": {
-            "caseSensitiveCheck": true,
-            "useNormalizedOHMUrl": true
-          }
-        },
-        "targetSdkVersion": "5.0.2(14)",
         "buildOption": {
           "strictMode": {
             "caseSensitiveCheck": true,

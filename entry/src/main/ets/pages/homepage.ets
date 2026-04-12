@@ -547,7 +547,7 @@ export struct homepage {
         // 左侧图片区域 28%
         Column() {
           if (farmlandItem.avatar) {
-            Image(farmlandItem.avatar)
+            Image('file://' + farmlandItem.avatar)
               .width('100%')
               .height(100) // 降低高度
               .borderRadius(10)
@@ -787,7 +787,7 @@ export struct homepage {
                   Column({ space: 8 }) {
                     Stack() {
                       if (item.avatar) {
-                        Image(item.avatar)
+                        Image('file://' + item.avatar)
                           .width(72)
                           .height(72)
                           .borderRadius(36)

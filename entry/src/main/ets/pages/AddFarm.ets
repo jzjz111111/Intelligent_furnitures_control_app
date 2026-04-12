@@ -3,13 +3,15 @@ import { _IoTad } from "../pages/scan_devices";
 import {  farmland } from "../tool/classes";
 import picker from '@ohos.file.picker';
 import { ThemeColors } from '../utils/theme';
-import common from '@ohos.app.ability.common';
+//import common from '@ohos.app.ability.common';
 import http from '@ohos.net.http';
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';
 import fileUri from '@ohos.file.fileuri';
 import resourceManager from '@ohos.resourceManager';
-import fileio from '@ohos.fileio';
+import { common } from '@kit.AbilityKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+
 
 interface FarmUploadResponseData {
   imagePath: string;
@@ -43,6 +45,40 @@ export struct add_farmland_page {
   aboutToAppear(): void {
     const context = getContext(this) as common.UIAbilityContext;
     this.db = new FarmlandDatabase(context);
+  }
+  // 1. 方法接收一个 string 类型的 uri，并返回一个 Promise<string>
+  async readPhotoToBase64(uri: string): Promise<string> {
+    // 2. 明确 context 的类型为 common.UIAbilityContext
+    let context = getContext(this) as common.UIAbilityContext;
+
+    // 3. 明确 file 变量的类型为 fs.File
+    let file: fs.File;
+    try {
+      // 直接用 fs.open 打开 URI
+      file = await fs.open(uri, fs.OpenMode.READ_ONLY);
+    } catch (err) {
+      // 4. 错误处理时，明确 err 的类型为 BusinessError
+      let error = err as BusinessError;
+      console.error(`打开文件失败，错误码: ${error.code}, 信息: ${error.message}`);
+      throw new Error('打开文件失败'); // 抛出错误，让调用方处理
+    }
+
+    // 5. 使用 statSync 获取文件信息，并明确 stat 变量的类型为 fs.Stat
+    let stat: fs.Stat = fs.statSync(file.fd);
+
+    // 6. 根据文件大小创建一个 ArrayBuffer
+    let buffer = new ArrayBuffer(stat.size);
+    // 7. 将文件内容读取到 buffer 中
+    await fs.read(file.fd, buffer);
+
+    // 8. 读取完成后，关闭文件
+    await fs.close(file);
+
+    // 9. 将 buffer 转为 Base64 字符串
+    let base64Helper = new util.Base64Helper();
+    let base64String = base64Helper.encodeToStringSync(new Uint8Array(buffer));
+
+    return base64String;
   }
 
   build() {
@@ -107,50 +143,28 @@ export struct add_farmland_page {
                     fileName: fileName
                   }
 
-                  // 读取文件并转为 Base64（在第107行之后添加）
-                  /*try {
-                    const realPath: string = fileUri.getRealPath(this.avatarUri, getContext(this));
-                    const file = await fs.open(this.avatarUri, fs.OpenMode.READ_ONLY);
-                    const stat = await fs.stat(this.avatarUri);
-                    const buffer = new ArrayBuffer(stat.size);
-                    await fs.read(file.fd, buffer, { offset: 0, length: stat.size });
-                    fs.closeSync(file);
-
-                    const uint8Array = new Uint8Array(buffer);
-                    const base64Helper: util.Base64Helper = new util.Base64Helper();
-                    requestBody.base64 = base64Helper.encodeToStringSync(uint8Array);
-                    console.log("开始上传农田图片...", "userId:", userId, "farmName:", this.dev_name, "fileName:", fileName, "base64长度:", requestBody.base64.length)
-                  } catch (err) {
-                    console.error("读取图片失败:", err);
-                    AlertDialog.show({ message: "图片读取失败" });
-                    return;
-                  }*/
-                  // 读取文件并转为 Base64
                   try {
-                    const context = getContext(this) as common.UIAbilityContext;
-                    // 去掉 file:// 前缀
-                    const uriPath = this.avatarUri.replace('file://', '');
+                    // 直接调用我们新写的方法
+                    requestBody.base64 = await this.readPhotoToBase64(this.avatarUri);
+                    console.info("图片读取成功，base64长度:", requestBody.base64.length);
 
-                    // 通过 resourceManager 获取文件描述符
-                    const fileDescriptor: resourceManager.RawFileDescriptor = await context.resourceManager.getRawFileDescriptor(uriPath);
-                    const fd: number = fileDescriptor.fd;
-                    const stat = fileio.fstatSync(fd);
-                    const buffer = new ArrayBuffer(stat.size);
-                    fileio.readSync(fd, buffer, { offset: 0, length: stat.size });
-
-                    const uint8Array = new Uint8Array(buffer);
-                    const base64Helper = new util.Base64Helper();
-                    requestBody.base64 = base64Helper.encodeToStringSync(uint8Array);
-
-                    console.log("图片读取成功，base64长度:", requestBody.base64.length);
+                    // 验证 base64 是否有效
+                    if (requestBody.base64.length === 0) {
+                      AlertDialog.show({ message: "图片数据为空，请重新选择" });
+                      return;
+                    }
                   } catch (err) {
-                    console.error("读取图片失败:", JSON.stringify(err));
-                    AlertDialog.show({ message: "图片读取失败" });
+                    // 这里的错误类型也最好明确一下
+                    let error = err as Error;
+                    console.error("读取图片失败:", error.message);
+                    AlertDialog.show({ message: `图片读取失败：${error.message}` });
                     return;
                   }
 
 
                   let httpRequest = http.createHttp();
+                  console.error('=== 准备发送上传请求，URL: http://127.0.0.1:8080/api/farm/uploadAvatar ===');
+                  console.error('=== requestBody 预览: userId=' + requestBody.userId + ', farmName=' + requestBody.farmName + ', base64长度=' + requestBody.base64.length);
                   httpRequest.request(
                     'http://127.0.0.1:8080/api/farm/uploadAvatar',
                     {
@@ -186,6 +200,7 @@ export struct add_farmland_page {
                       }
                     }
                   )
+
                 } catch (err) {
                   console.error("上传农田图片失败:", err)
                   AlertDialog.show({ message: "上传失败" })
@@ -242,11 +257,12 @@ export struct add_farmland_page {
       // 4. 打开相册
       const photoPicker = new picker.PhotoViewPicker();
       const selectResult = await photoPicker.select(photoOption);
-
-      // 5. 获取选中的图片地址
       if (selectResult.photoUris && selectResult.photoUris.length > 0) {
         this.avatarUri = selectResult.photoUris[0];
-        console.log("选中头像地址：", this.avatarUri);
+        console.info("选中头像地址：", this.avatarUri);
+      } else {
+        console.info("用户取消了选择");
+        // 不赋值，保持原样
       }
     } catch (err) {
       console.error("选择图片失败：", err);

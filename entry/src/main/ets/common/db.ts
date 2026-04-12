@@ -308,17 +308,11 @@ export async function runInitSql(store: relationalStore.RdbStore, context: any) 
   try {
     const resourceManager = context.resourceManager;
 
-    // 获取文件描述符
-    const fileDescriptor = resourceManager.getRawFileDescriptor('init.sql');
-    const fd = fileDescriptor.fd;
-    const length = fileDescriptor.length;
-
-    // 读取文件内容
-    const buf = new ArrayBuffer(length);
-    fileio.readSync(fd, buf, { offset: 0, length: length });
+    // 直接获取文件内容（返回 ArrayBuffer）
+    const content: ArrayBuffer = resourceManager.getRawFileContent('init.sql');
 
     // 将 ArrayBuffer 转为字符串
-    const uint8Array: Uint8Array = new Uint8Array(buf);
+    const uint8Array: Uint8Array = new Uint8Array(content);
     const sql: string = String.fromCharCode.apply(null, Array.from(uint8Array) as any);
 
     // 分割并执行 SQL 语句

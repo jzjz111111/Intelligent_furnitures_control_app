@@ -284,7 +284,7 @@ export struct RemoteControlPage {
       Row({ space: 16 }) {
         Stack() {
           if (this.farm?.avatar) {
-            Image(this.farm.avatar)
+            Image('file://' +this.farm.avatar)
               .width(98)
               .height(90)
               .borderRadius(16)

@@ -270,10 +270,13 @@ interface LatestPhotoResponse {
 }
 
 export class MyHttpServer {
+
   private isRunning: boolean = false;
   private context: Context;
   private tcpServer: socket.TCPSocketServer | null = null;
   private readonly PORT: number = 8080;
+
+  private connectionBufferMap: Map<socket.TCPSocketConnection, string> = new Map();
 
   constructor(context: Context) {
     this.context = context;
@@ -301,6 +304,7 @@ export class MyHttpServer {
 
         connection.on('close', () => {
           console.log("🔌 连接关闭");
+          this.connectionBufferMap.delete(connection);  // 新加这行
         });
       });
 
@@ -325,27 +329,159 @@ export class MyHttpServer {
       throw new Error(`HTTP 服务器启动失败: ${error.message}`);
     }
   }
+  /*private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
 
-  private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
+    console.log(`🔔 handleMessage 被调用`);
+
     try {
       const data: ArrayBuffer | string = msgInfo.message;
-      let requestStr = '';
-
+      let chunk: string = '';
       if (data instanceof ArrayBuffer) {
-        requestStr = buffer.from(data).toString('utf-8');
+        chunk = buffer.from(data).toString('utf-8');
       } else if (typeof data === 'string') {
-        requestStr = data;
+        chunk = data;
       }
 
-      console.log("📨 收到请求:", requestStr.substring(0, 100));
+      // 1. 获取该连接之前暂存的数据
+      let pendingData = this.connectionBufferMap.get(connection) || '';
+      const fullData = pendingData + chunk;
 
-      if (!requestStr) {
-        console.warn("⚠️ 空请求，忽略");
+      // 2. 检查是否收到了完整的请求头（以 \r\n\r\n 分隔）
+      const headerEndPos = fullData.indexOf('\r\n\r\n');
+      // console.log('📋 当前收到的数据片段:', fullData.substring(0, 200));
+
+      if (headerEndPos === -1) {
+        // 请求头还没收完，先存起来等下次数据
+        this.connectionBufferMap.set(connection, fullData);
         return;
       }
 
+      // 3. 从请求头中提取 Content-Length
+      const headerStr = fullData.substring(0, headerEndPos);
+      const contentLengthMatch = headerStr.match(/Content-Length:\s*(\d+)/i);
+      let contentLength = 0;
+      if (contentLengthMatch) {
+        contentLength = parseInt(contentLengthMatch[1], 10);
+      }
+
+      // 4. 计算已经收到的请求体部分（字符串形式）
+      const bodyStartPos = headerEndPos + 4;
+      const receivedBodyStr = fullData.substring(bodyStartPos);
+
+      // 5. 关键修复：计算请求体的实际字节长度，而不是字符长度
+      const receivedBodyBytes = buffer.from(receivedBodyStr, 'utf-8').length;
+
+      console.log(`📏 请求体已接收字节: ${receivedBodyBytes}, 需要字节: ${contentLength}`);
+
+      // 6. 如果请求体还没收完，继续缓存
+      if (receivedBodyBytes < contentLength) {
+        this.connectionBufferMap.set(connection, fullData);
+        return;
+      }
+
+
+      // 7. 提取完整的请求字符串（按字节截取后再转回字符串）
+      const completeRequestBytes: Uint8Array = new Uint8Array(buffer.from(fullData, 'utf-8').buffer);
+      const headerPartBytes: Uint8Array = new Uint8Array(buffer.from(fullData.substring(0, bodyStartPos), 'utf-8').buffer);
+      const totalHeaderBytes: number = headerPartBytes.length;
+      const expectedTotalBytes: number = totalHeaderBytes + contentLength;
+
+      // 确保不超过缓冲区长度
+      const actualEndPos: number = Math.min(expectedTotalBytes, completeRequestBytes.length);
+
+      // 使用 subarray 替代 slice（HarmonyOS Buffer API 兼容）
+      const completePart: Uint8Array = completeRequestBytes.subarray(0, actualEndPos);
+      const completeRequestStr: string = buffer.from(completePart.buffer).toString('utf-8');
+
+      // 8. 剩余数据（可能属于下一个请求）放回缓冲区
+      if (actualEndPos < completeRequestBytes.length) {
+        const remainingPart: Uint8Array = completeRequestBytes.subarray(actualEndPos);
+        const remaining: string = buffer.from(remainingPart.buffer).toString('utf-8');
+        this.connectionBufferMap.set(connection, remaining);
+      } else {
+        this.connectionBufferMap.delete(connection);
+      }
+
+
+      console.log(`📨 完整请求已接收，长度: ${completeRequestStr.length}`);
+
+      // 9. 处理完整的请求
       const self = this;
-      this.handleHttpRequest(requestStr).then((responseStr: string): void => {
+      this.handleHttpRequest(completeRequestStr).then((responseStr: string): void => {
+        const responseBuffer: ArrayBuffer = buffer.from(responseStr).buffer;
+        connection.send({ data: responseBuffer });
+        console.log("✅ 响应已发送");
+      }).catch((err: Error): void => {
+        console.error("❌ 处理请求失败", err);
+        const errorResponse: string = self.buildHttpResponse(self.fail("服务器内部错误"), 500);
+        connection.send({ data: buffer.from(errorResponse).buffer });
+      });
+
+    } catch (e) {
+      console.error("❌ 消息处理异常", e);
+    }
+  }*/
+  private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
+
+    console.log(`🔔 handleMessage 被调用`);
+
+    try {
+      const data: ArrayBuffer | string = msgInfo.message;
+      let chunk: string = '';
+      if (data instanceof ArrayBuffer) {
+        chunk = buffer.from(data).toString('utf-8');
+      } else if (typeof data === 'string') {
+        chunk = data;
+      }
+
+      // 1. 获取该连接之前暂存的数据
+      let pendingData = this.connectionBufferMap.get(connection) || '';
+      const fullData = pendingData + chunk;
+
+      // 2. 检查是否收到了完整的请求头（以 \r\n\r\n 分隔）
+      const headerEndPos = fullData.indexOf('\r\n\r\n');
+
+      if (headerEndPos === -1) {
+        // 请求头还没收完，先存起来等下次数据
+        this.connectionBufferMap.set(connection, fullData);
+        return;
+      }
+
+      // 3. 从请求头中提取 Content-Length
+      const headerStr = fullData.substring(0, headerEndPos);
+      const contentLengthMatch = headerStr.match(/Content-Length:\s*(\d+)/i);
+      let contentLength = 0;
+      if (contentLengthMatch) {
+        contentLength = parseInt(contentLengthMatch[1], 10);
+      }
+
+      // 4. 计算请求体起始位置
+      const bodyStartPos = headerEndPos + 4;
+      const receivedBodyStr = fullData.substring(bodyStartPos);
+
+      // 5. 关键修复：计算请求体的实际字节长度
+      const receivedBodyBytes = buffer.from(receivedBodyStr, 'utf-8').length;
+
+      console.log(`📏 请求体已接收字节: ${receivedBodyBytes}, 需要字节: ${contentLength}`);
+
+      // 6. 如果请求体还没收完，继续缓存
+      if (receivedBodyBytes < contentLength) {
+        this.connectionBufferMap.set(connection, fullData);
+        return;
+      }
+
+      // 7. 简化方案：直接在字符串层面处理，不再按字节截取
+      // 由于我们已经确认收到了足够的字节，直接使用字符串
+      const completeRequestStr = fullData;
+
+      // 清空缓冲区
+      this.connectionBufferMap.delete(connection);
+
+      console.log(`📨 完整请求已接收，总长度: ${completeRequestStr.length}`);
+
+      // 8. 处理完整的请求
+      const self = this;
+      this.handleHttpRequest(completeRequestStr).then((responseStr: string): void => {
         const responseBuffer: ArrayBuffer = buffer.from(responseStr).buffer;
         connection.send({ data: responseBuffer });
         console.log("✅ 响应已发送");
@@ -359,6 +495,8 @@ export class MyHttpServer {
       console.error("❌ 消息处理异常", e);
     }
   }
+
+
 
   private async handleHttpRequest(requestStr: string): Promise<string> {
     const lines: string[] = requestStr.split('\r\n');
@@ -376,19 +514,23 @@ export class MyHttpServer {
     const fullPath: string = parts[1];
     const path: string = fullPath.split('?')[0];
 
+    // ========== 改进的请求体解析 ==========
     let body: object | undefined = undefined;
-
-    const emptyLineIndex: number = lines.findIndex((line: string): boolean => line.trim() === '');
-    if (emptyLineIndex !== -1 && emptyLineIndex < lines.length - 1) {
-      const bodyStr: string = lines.slice(emptyLineIndex + 1).join('\r\n');
+    const headerEndMarker = '\r\n\r\n';
+    const headerEndPos = requestStr.indexOf(headerEndMarker);
+    if (headerEndPos !== -1) {
+      const bodyStr = requestStr.substring(headerEndPos + headerEndMarker.length);
       if (bodyStr.trim()) {
         try {
           body = JSON.parse(bodyStr);
+          console.log(`✅ 请求体解析成功，长度: ${bodyStr.length}`);
         } catch (e) {
-          console.warn('⚠️ 解析请求体失败');
+          console.error('❌ 请求体 JSON 解析失败:', e);
+          console.error('❌ 原始请求体前100字符:', bodyStr.substring(0, 100));
         }
       }
     }
+    // ====================================
 
     console.log(`🎯 路由: ${method} ${path}`);
 
@@ -564,6 +706,7 @@ export class MyHttpServer {
   }
 
   async getMockResponse(path: string, body?: object): Promise<string> {
+    console.log(`[调试] 收到请求: path="${path}", body是否存在=${!!body}`);
     // 注册接口
     if (path === "/api/user/register" && body) {
       try {
@@ -894,7 +1037,7 @@ export class MyHttpServer {
     }
 
     // 新增：农田头像上传接口（同时创建农田记录）
-    if (path === "/api/farm/uploadAvatar" && body) {
+    /*if (path === "/api/farm/uploadAvatar" && body) {
       try {
         const b: FarmAvatarUploadBody = body as FarmAvatarUploadBody;
 
@@ -947,7 +1090,70 @@ export class MyHttpServer {
         console.error("农田图片上传失败", err);
         return this.fail("农田创建失败");
       }
+    }*/
+    // 新增：农田头像上传接口（同时创建农田记录）
+    if (path === "/api/farm/uploadAvatar" && body) {
+      try {
+        const b: FarmAvatarUploadBody = body as FarmAvatarUploadBody;
+
+        if (!b.userId || !b.farmName || !b.base64|| !b.fileName) {
+          return this.fail("参数缺失");
+        }
+
+        // 1. 创建保存图片的目录
+        const farmImageDir: string = this.context.filesDir + "/farm_images/";
+        if (!(await fs.access(farmImageDir))) {
+          await fs.mkdir(farmImageDir);
+        }
+
+        // 2. 生成唯一文件名
+        const ext: string = b.fileName.split(".").pop() || "jpg";
+        const saveFileName: string = `FARM_${Date.now()}_${b.userId}.${ext}`;
+        const finalImagePath: string = farmImageDir + saveFileName;
+
+        // 3. 处理 Base64 字符串（移除可能的 Data URL 前缀）
+        let base64Data = b.base64;
+        if (base64Data.includes(',')) {
+          base64Data = base64Data.split(',')[1];
+        }
+
+        // 4. Base64 转二进制并保存
+        const base64Helper: util.Base64Helper = new util.Base64Helper();
+        const uint8Array: Uint8Array = base64Helper.decodeSync(base64Data);
+
+        // 使用同步 API 确保正确写入
+        const file = fs.openSync(finalImagePath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY | fs.OpenMode.TRUNC);
+        fs.writeSync(file.fd, uint8Array.buffer);
+        fs.closeSync(file.fd);
+
+        const stat = await fs.stat(finalImagePath);
+        console.log(`✅ 农田图片已保存: ${finalImagePath}, 大小: ${stat.size} bytes`);
+
+
+        // 5. 创建农田记录
+        const store = await openAgriDb(this.context);
+        const zoneId = await addFarm(
+          store,
+          b.userId,
+          b.farmName,
+          b.location || "",
+          b.note || "",
+          finalImagePath
+        );
+
+        // 6. 返回结果
+        const res: FarmAvatarUploadResponse = {
+          message: "农田创建成功",
+          zoneId: zoneId,
+          imagePath: finalImagePath
+        };
+        return this.success(res);
+      } catch (err) {
+        console.error("农田图片上传失败", err);
+        return this.fail("农田创建失败");
+      }
     }
+
 
     // 删除农田接口
     if (path === "/api/farm/delete" && body) {

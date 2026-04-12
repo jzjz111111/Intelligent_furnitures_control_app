@@ -32,7 +32,7 @@ interface BaseResponse {
 }
 
 // ===================== 配置 =====================
-const BASE_URL: string = "http://10.33.50.235:8080";
+const BASE_URL: string = "http://127.0.0.1:8080";
 
 // ===================== GET 请求 =====================
 export async function GET(url: string): Promise<SensorResponse> {

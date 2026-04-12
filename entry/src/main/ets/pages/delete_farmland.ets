@@ -93,8 +93,10 @@ struct ConfirmDialog {
                 }
               } catch (err) {
                 console.error("删除农田失败:", err);
-                AlertDialog.show({ message: "网络错误，请检查服务器连接" });
+                const errorMessage = err instanceof Error ? err.message : String(err);
+                AlertDialog.show({ message: `删除失败：${errorMessage}` });
               } finally {
+
                 animateTo({ duration: 300 }, () => {
                   this.is_show = false;
                 });

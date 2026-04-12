@@ -160,7 +160,7 @@ struct Index {
           }
           .tabBar(this.MyBuilder_analysis("数据分析",1))
           TabContent() {
-            FarmScenePage({ arr_farmland: this.arr_farmland });
+            FarmScenePage();
           }
           .tabBar(this.MyBuilder_add("智能场景", 2))
 

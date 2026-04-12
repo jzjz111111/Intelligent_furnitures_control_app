@@ -35,6 +35,10 @@
     {
       "name": "permission_location_reason",
       "value": "用于获取您的位置信息，展示农场所在地区"
+    },
+    {
+      "name": "read_imagevideo_reason",
+      "value": "用于读取相册图片作为农田头像"
     }
   ]
 }

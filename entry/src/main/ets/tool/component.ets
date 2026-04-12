@@ -3,11 +3,13 @@ import { _IoTad } from "../pages/scan_devices";
 import {  Device, farmland } from "./classes";
 import { ThemeColors } from '../utils/theme';
 import common from '@ohos.app.ability.common';
+import http from '@ohos.net.http';
 
-let new_arr_farmlands:farmland[]
-let new_arr_f:Device[]
 
-let Farmland_db:FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
+//let new_arr_farmlands:farmland[]
+//let new_arr_f:Device[]
+
+//let Farmland_db:FarmlandDatabase = new FarmlandDatabase(globalThis.getContext())
 let new_f_R_Id:number
 
 @Component
@@ -182,6 +184,7 @@ export struct myList {
         }
       }
       .height("90%")
+      .width('100%')
       .lanes(2)
 
 
@@ -206,7 +209,7 @@ export struct myList {
       }
 
     }.onClick(()=>{
-      new_arr_f = this.arr_dev
+      //new_arr_f = this.arr_dev
     })
   }
 }
@@ -253,16 +256,66 @@ export struct device_long {
         Row(){
           Button('删除')
             .onClick(async ()=>{
-              if (!this.db) return;
-              let r_id = await this.db.getFarmlandsIdByName(this.farmland1.name)
+              // ❌ 删除这些本地数据库操作
+              // if (!this.db) return;
+              // let r_id = await this.db.getFarmlandsIdByName(this.farmland1.name)
+              // await this.db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
 
-              await this.db.deleteDeviceByFarmlandIdAndName(r_id,this.arr_f[this.index_d].name)
-              this.arr_f = this.arr_f.filter((element) => element.name!== this.arr_f[this.index_d].name);
-              this.is_chang = !this.is_chang
-              this.is_show_d = false
+              // ✅ 改为只调用后端接口
+              try {
+                if (!this.db) return;
+                let r_id = await this.db.getFarmlandsIdByName(this.farmland1.name);
+
+                const deviceName = this.arr_f[this.index_d].name;
+
+                const httpRequest = http.createHttp();
+                const response = await httpRequest.request(
+                  'http://127.0.0.1:8080/api/device/delete',
+                  {
+                    method: http.RequestMethod.POST,
+                    header: { 'Content-Type': 'application/json' },
+                    extraData: JSON.stringify({
+                      farmlandId: r_id,
+                      deviceName: deviceName
+                    })
+                  }
+                );
+
+                if (response.responseCode === 200) {
+                  const result = JSON.parse(response.result as string) as Record<string, Object>;
+
+                  if (result.code === 200) {
+                    // ✅ 后端成功后，只更新 UI
+                    this.arr_f = this.arr_f.filter((element) => element.name !== deviceName);
+                    this.is_chang = !this.is_chang;
+                    console.log("✅ 设备删除成功");
+                  } else {
+                    AlertDialog.show({
+                      message: (result.msg as string) || '删除失败'
+                    });
+                    httpRequest.destroy();
+                    return;
+                  }
+                } else {
+                  AlertDialog.show({
+                    message: '网络错误，请重试'
+                  });
+                  httpRequest.destroy();
+                  return;
+                }
+
+                httpRequest.destroy();
+              } catch (err) {
+                console.error("删除设备异常:", err);
+                AlertDialog.show({
+                  message: '删除失败，请重试'
+                });
+              }
+
+              this.is_show_d = false;
               animateTo({duration:500},()=>{this._height = '0%'})
-
             })
+
             .padding(5)
             .width(100)
             .backgroundColor(ThemeColors.danger)
@@ -379,21 +432,59 @@ export struct add_device_page {
           .fontColor(ThemeColors.bgCard)
           .onClick(async () => {
             if (this.dev_name != '' && this.type != 0 && this.db) {
-              let success = await this.db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
-              if (success == 1) {
-                const newDevice = new Device(this.dev_name, 0, this.type)
-                this.arr = [...this.arr, newDevice]
-                this.farmland1.device_s = this.arr
-              } else {
+              // ❌ 删除这行 - 不再操作本地数据库
+              // let success = await this.db.insertFuByFarmlandId(new_f_R_Id, this.dev_name, this.type)
+
+              // ✅ 改为只调用后端接口
+              const httpRequest = http.createHttp();
+              try {
+                const response = await httpRequest.request(
+                  'http://127.0.0.1:8080/api/device/add',
+                  {
+                    method: http.RequestMethod.POST,
+                    header: { 'Content-Type': 'application/json' },
+                    extraData: JSON.stringify({
+                      farmlandId: new_f_R_Id,
+                      deviceId: this.dev_name + ':' + new_f_R_Id,
+                      deviceName: this.dev_name,
+                      typeId: this.type
+                    })
+                  }
+                );
+
+                if (response.responseCode === 200) {
+                  const result = JSON.parse(response.result as string) as Record<string, Object>;
+
+                  if (result.code === 200) {
+                    // ✅ 后端成功后，只更新 UI，不操作本地数据库
+                    const newDevice = new Device(this.dev_name, 0, this.type);
+                    this.arr = [...this.arr, newDevice];
+                    this.farmland1.device_s = this.arr;
+                    console.log("✅ 设备添加成功");
+                  } else {
+                    AlertDialog.show({
+                      message: (result.msg as string) || '添加失败'
+                    });
+                  }
+                } else {
+                  AlertDialog.show({
+                    message: '网络错误，请重试'
+                  });
+                }
+              } catch (err) {
+                console.error("添加设备异常:", err);
                 AlertDialog.show({
-                  message: '名字或ID重复了喂 >o< '
-                })
+                  message: '添加失败，请重试'
+                });
+              } finally {
+                httpRequest.destroy();
               }
             }
 
-            animateTo({ duration: 500 }, () => { this._height = '0%' })
-            this.is_show = false
+            animateTo({ duration: 500 }, () => { this._height = '0%' });
+            this.is_show = false;
           })
+
       }
       .height('50%')
       .width('100%')

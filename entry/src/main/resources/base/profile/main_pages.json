@@ -9,17 +9,19 @@
     "pages/homepage",
     "pages/deepseek_page",
     "pages/analyze",
+    "pages/face_cma",
     "pages/get_device",
     "pages/Open",
     "pages/OpenAI_Page",
     "pages/Register",
-    "pages/try",
     "pages/scan_devices",
+    "pages/scene_page",
     "pages/Search_devices",
     "pages/test_Page",
-    "pages/FarmMonitor",
-    "pages/FarmHistoryPhotos",
-    "pages/scene_page"
+    "pages/try",
+    "pages/ai_pest"
+
+
   ],
   "window": {
     "designWidth": 360,

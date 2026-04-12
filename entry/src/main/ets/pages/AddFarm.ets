@@ -3,7 +3,7 @@ import { _IoTad } from "../pages/scan_devices";
 import {  farmland } from "../tool/classes";
 import picker from '@ohos.file.picker';
 import { ThemeColors } from '../utils/theme';
-//import common from '@ohos.app.ability.common';
+import common from '@ohos.app.ability.common';
 import http from '@ohos.net.http';
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';
@@ -11,6 +11,9 @@ import fileUri from '@ohos.file.fileuri';
 import resourceManager from '@ohos.resourceManager';
 import { common } from '@kit.AbilityKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
+
+import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
+
 
 
 interface FarmUploadResponseData {
@@ -39,7 +42,6 @@ export struct add_farmland_page {
   @State dev_name: string = ''
   @Link is_show: boolean
   @State avatarUri: string = ''
-
   private db: FarmlandDatabase | null = null;
 
   aboutToAppear(): void {

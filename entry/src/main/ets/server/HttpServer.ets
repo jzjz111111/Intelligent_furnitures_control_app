@@ -1,5 +1,7 @@
 import { Context } from '@kit.AbilityKit';
 import fs from '@ohos.file.fs';
+import relationalStore from '@ohos.data.relationalStore';
+
 import {
   openAgriDb,
   updateUserAvatar,
@@ -21,7 +23,8 @@ import {
   deleteVideoRecord,
   getLatestVideoPerDevice,
   addCapturePhoto,
-  getPhotoListByDevice
+  getPhotoListByDevice,
+  addDeviceToDatabase
 } from '../common/db';
 import { alarmService } from '../repository/roomDatabase';
 import buffer from '@ohos.buffer';
@@ -116,6 +119,14 @@ interface SensorData {
   co2: number;
 }
 
+// 添加设备请求体
+interface AddDeviceRequest {
+  farmlandId: number;
+  deviceId: string;
+  deviceName: string;
+  typeId: number;
+}
+
 // 设备状态
 interface DeviceStatus {
   status: string;
@@ -127,6 +138,23 @@ interface DeviceInfo {
   deviceId: string;
   name: string;
   status: string;
+}
+
+// 基础响应接口 (在添加设备响应之前添加)
+interface BaseResponse {
+  code: number;
+  msg: string;
+}
+
+// 设备添加响应数据
+interface AddDeviceData {
+  deviceId: string;
+  message: string;
+}
+
+// 添加设备响应
+interface AddDeviceResponse extends BaseResponse {
+  data: AddDeviceData;
 }
 
 // 告警响应
@@ -180,7 +208,8 @@ interface FarmDeleteBody {
 
 // 删除设备请求体
 interface DeviceDeleteBody {
-  deviceId: number;
+  farmlandId: number;
+  deviceName: string;
 }
 
 
@@ -270,7 +299,6 @@ interface LatestPhotoResponse {
 }
 
 export class MyHttpServer {
-
   private isRunning: boolean = false;
   private context: Context;
   private tcpServer: socket.TCPSocketServer | null = null;
@@ -329,98 +357,7 @@ export class MyHttpServer {
       throw new Error(`HTTP 服务器启动失败: ${error.message}`);
     }
   }
-  /*private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
 
-    console.log(`🔔 handleMessage 被调用`);
-
-    try {
-      const data: ArrayBuffer | string = msgInfo.message;
-      let chunk: string = '';
-      if (data instanceof ArrayBuffer) {
-        chunk = buffer.from(data).toString('utf-8');
-      } else if (typeof data === 'string') {
-        chunk = data;
-      }
-
-      // 1. 获取该连接之前暂存的数据
-      let pendingData = this.connectionBufferMap.get(connection) || '';
-      const fullData = pendingData + chunk;
-
-      // 2. 检查是否收到了完整的请求头（以 \r\n\r\n 分隔）
-      const headerEndPos = fullData.indexOf('\r\n\r\n');
-      // console.log('📋 当前收到的数据片段:', fullData.substring(0, 200));
-
-      if (headerEndPos === -1) {
-        // 请求头还没收完，先存起来等下次数据
-        this.connectionBufferMap.set(connection, fullData);
-        return;
-      }
-
-      // 3. 从请求头中提取 Content-Length
-      const headerStr = fullData.substring(0, headerEndPos);
-      const contentLengthMatch = headerStr.match(/Content-Length:\s*(\d+)/i);
-      let contentLength = 0;
-      if (contentLengthMatch) {
-        contentLength = parseInt(contentLengthMatch[1], 10);
-      }
-
-      // 4. 计算已经收到的请求体部分（字符串形式）
-      const bodyStartPos = headerEndPos + 4;
-      const receivedBodyStr = fullData.substring(bodyStartPos);
-
-      // 5. 关键修复：计算请求体的实际字节长度，而不是字符长度
-      const receivedBodyBytes = buffer.from(receivedBodyStr, 'utf-8').length;
-
-      console.log(`📏 请求体已接收字节: ${receivedBodyBytes}, 需要字节: ${contentLength}`);
-
-      // 6. 如果请求体还没收完，继续缓存
-      if (receivedBodyBytes < contentLength) {
-        this.connectionBufferMap.set(connection, fullData);
-        return;
-      }
-
-
-      // 7. 提取完整的请求字符串（按字节截取后再转回字符串）
-      const completeRequestBytes: Uint8Array = new Uint8Array(buffer.from(fullData, 'utf-8').buffer);
-      const headerPartBytes: Uint8Array = new Uint8Array(buffer.from(fullData.substring(0, bodyStartPos), 'utf-8').buffer);
-      const totalHeaderBytes: number = headerPartBytes.length;
-      const expectedTotalBytes: number = totalHeaderBytes + contentLength;
-
-      // 确保不超过缓冲区长度
-      const actualEndPos: number = Math.min(expectedTotalBytes, completeRequestBytes.length);
-
-      // 使用 subarray 替代 slice（HarmonyOS Buffer API 兼容）
-      const completePart: Uint8Array = completeRequestBytes.subarray(0, actualEndPos);
-      const completeRequestStr: string = buffer.from(completePart.buffer).toString('utf-8');
-
-      // 8. 剩余数据（可能属于下一个请求）放回缓冲区
-      if (actualEndPos < completeRequestBytes.length) {
-        const remainingPart: Uint8Array = completeRequestBytes.subarray(actualEndPos);
-        const remaining: string = buffer.from(remainingPart.buffer).toString('utf-8');
-        this.connectionBufferMap.set(connection, remaining);
-      } else {
-        this.connectionBufferMap.delete(connection);
-      }
-
-
-      console.log(`📨 完整请求已接收，长度: ${completeRequestStr.length}`);
-
-      // 9. 处理完整的请求
-      const self = this;
-      this.handleHttpRequest(completeRequestStr).then((responseStr: string): void => {
-        const responseBuffer: ArrayBuffer = buffer.from(responseStr).buffer;
-        connection.send({ data: responseBuffer });
-        console.log("✅ 响应已发送");
-      }).catch((err: Error): void => {
-        console.error("❌ 处理请求失败", err);
-        const errorResponse: string = self.buildHttpResponse(self.fail("服务器内部错误"), 500);
-        connection.send({ data: buffer.from(errorResponse).buffer });
-      });
-
-    } catch (e) {
-      console.error("❌ 消息处理异常", e);
-    }
-  }*/
   private handleMessage(connection: socket.TCPSocketConnection, msgInfo: socket.SocketMessageInfo): void {
 
     console.log(`🔔 handleMessage 被调用`);
@@ -1036,61 +973,7 @@ export class MyHttpServer {
       }
     }
 
-    // 新增：农田头像上传接口（同时创建农田记录）
-    /*if (path === "/api/farm/uploadAvatar" && body) {
-      try {
-        const b: FarmAvatarUploadBody = body as FarmAvatarUploadBody;
 
-        if (!b.userId || !b.farmName || !b.base64|| !b.fileName) {
-          return this.fail("参数缺失");
-        }
-
-        // 1. 创建保存图片的目录
-        const farmImageDir: string = this.context.filesDir + "/farm_images/";
-        if (!(await fs.access(farmImageDir))) {
-          await fs.mkdir(farmImageDir);
-        }
-
-        // 2. 生成唯一文件名
-        const ext: string = b.fileName.split(".").pop() || "jpg";
-        const saveFileName: string = `FARM_${Date.now()}_${b.userId}.${ext}`;
-        const finalImagePath: string = farmImageDir + saveFileName;
-
-        // 3. Base64 转二进制并保存（替换原来的 fs.copyFile）
-        const base64Helper: util.Base64Helper = new util.Base64Helper();
-        const binaryData: ArrayBuffer = base64Helper.decodeSync(b.base64);
-        const bytes: Uint8Array = new Uint8Array(binaryData);
-        const file = await fs.open(finalImagePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
-        await fs.write(file.fd, bytes.buffer);
-        await fs.close(file.fd);
-
-        const stat = await fs.stat(finalImagePath);
-        console.log(`✅ 农田图片已保存: ${finalImagePath}, 大小: ${stat.size} bytes`);
-
-
-        // 4. 创建农田记录
-        const store = await openAgriDb(this.context);
-        const zoneId = await addFarm(
-          store,
-          b.userId,
-          b.farmName,
-          b.location || "",
-          b.note || "",
-          finalImagePath
-        );
-
-        // 5. 返回结果
-        const res: FarmAvatarUploadResponse = {
-          message: "农田创建成功",
-          zoneId: zoneId,
-          imagePath: finalImagePath
-        };
-        return this.success(res);
-      } catch (err) {
-        console.error("农田图片上传失败", err);
-        return this.fail("农田创建失败");
-      }
-    }*/
     // 新增：农田头像上传接口（同时创建农田记录）
     if (path === "/api/farm/uploadAvatar" && body) {
       try {
@@ -1154,7 +1037,43 @@ export class MyHttpServer {
       }
     }
 
+    // 添加设备接口 (在删除设备接口之前添加)
+    if (path === "/api/device/add" && body) {
+      try {
+        const b: AddDeviceRequest = body as AddDeviceRequest;
 
+        // 参数校验
+        if (!b.farmlandId || !b.deviceId || !b.deviceName || !b.typeId) {
+          return this.fail("参数缺失:需要提供 farmlandId、deviceId、deviceName、typeId");
+        }
+
+        const store = await openAgriDb(this.context);
+
+        // 调用数据库方法添加设备
+        // 注意:需要在 db.ts 中添加 addDevice 方法
+        const deviceId = await addDeviceToDatabase(
+          store,
+          b.farmlandId,
+          b.deviceId,
+          b.deviceName,
+          b.typeId
+        );
+
+        const res: AddDeviceResponse = {
+          code: 200,
+          data: {
+            deviceId: deviceId.toString(),
+            message: "设备添加成功"
+          },
+          msg: "success"
+        };
+
+        return JSON.stringify(res);
+      } catch (err) {
+        console.error("添加设备失败", err);
+        return this.fail("添加设备失败");
+      }
+    }
     // 删除农田接口
     if (path === "/api/farm/delete" && body) {
       try {
@@ -1186,12 +1105,19 @@ export class MyHttpServer {
       try {
         const b: DeviceDeleteBody = body as DeviceDeleteBody;
 
-        if (!b.deviceId) {
-          return this.fail("参数缺失：缺少 deviceId");
+        // 参数校验
+        if (!b.farmlandId || !b.deviceName) {
+          return this.fail("参数缺失：需要提供 farmlandId 和 deviceName");
         }
 
         const store = await openAgriDb(this.context);
-        const success = await deleteDevice(store, b.deviceId);
+
+        // 通过农田ID和设备名删除设备
+        const predicates = new relationalStore.RdbPredicates('Device');
+        predicates.equalTo('zone_id', b.farmlandId).equalTo('name', b.deviceName);
+        const rows = await store.delete(predicates);
+
+        const success = rows > 0;
 
         if (success) {
           const res: CommonResponse = {

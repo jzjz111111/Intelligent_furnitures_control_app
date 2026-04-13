@@ -67,10 +67,10 @@ export class FarmlandDatabase {
     }
   }
 
-  async insertFuByFarmlandId(farmlandId: number, f_name: string, type_id: number) {
+  async insertFuByFarmlandId(farmlandId: number, d_name: string, type_id: number) {
     try {
       const deviceId = await this.rdbStore?.insert('Device', {
-        'name': f_name + ':' + farmlandId,
+        'name': d_name + ':' + farmlandId,
         'switch': 0,
         'farmlandId': farmlandId,
         'type_id': type_id
@@ -81,7 +81,7 @@ export class FarmlandDatabase {
       return 1
     } catch (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
-        console.error(`Failed to insert farmlandsdevice: Name ${f_name} already exists.`);
+        console.error(`Failed to insert farmlandsdevice: Name ${d_name} already exists.`);
         return -1
       } else {
         console.error(`Failed to insert device: ${err.message}`);
@@ -394,8 +394,12 @@ export class FarmlandDatabase {
       return;
     }
     try {
+      const fullDeviceName = name.includes(':') ? name : name + ':' + farmlandId;
       const sql = 'DELETE FROM Device WHERE farmlandId =? AND name =?';
-      const params = [farmlandId, name + ':' + farmlandId];
+      const params = [farmlandId, fullDeviceName];
+
+      // const sql = 'DELETE FROM Device WHERE farmlandId =? AND name =?';
+      //const params = [farmlandId, name + ':' + farmlandId];
       await this.rdbStore.executeSql(sql, params);
       console.log(`Device with farmlandId ${farmlandId} and name ${name} deleted successfully.`);
     } catch (err) {
